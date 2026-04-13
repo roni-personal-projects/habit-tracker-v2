@@ -4,11 +4,11 @@ import React, { useMemo } from 'react';
 import { format, subDays, eachDayOfInterval, startOfDay, isToday as isTodayFn, isFuture } from 'date-fns';
 import { useHabitStore } from '@/store/useHabitStore';
 import { calculateStreak } from '@/lib/streak-logic';
-import { Check, Flame, Plus, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
+import { Check, Flame, Plus, ChevronLeft, ChevronRight, RotateCcw, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function HabitTable() {
-  const { habits, completions, toggleCompletion } = useHabitStore();
+  const { habits, completions, toggleCompletion, deleteHabit } = useHabitStore();
   const [offset, setOffset] = React.useState(0);
 
   const daysCount = 14;
@@ -92,23 +92,37 @@ export default function HabitTable() {
                 return (
                   <tr key={habit.id} className="border-b border-zinc-800 group hover:bg-white/[0.02] transition-colors">
                     <td className="sticky left-0 z-10 bg-zinc-900 p-4 border-r border-zinc-800 transition-colors group-hover:bg-zinc-800/50">
-                      <div className="flex flex-col">
-                        <span className="font-medium text-zinc-100">{habit.name}</span>
-                        <div className="flex items-center gap-1.5 mt-1">
-                          <span 
-                            className="w-2 h-2 rounded-full" 
-                            style={{ backgroundColor: habit.color }}
-                          />
-                          <span className="text-[10px] text-zinc-500 uppercase tracking-tight">
-                            {habit.frequency}
-                          </span>
-                          {currentStreak > 0 && (
-                            <div className="flex items-center gap-0.5 ml-2 text-orange-500">
-                              <Flame size={12} fill="currentColor" />
-                              <span className="text-xs font-bold">{currentStreak}</span>
-                            </div>
-                          )}
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex flex-col">
+                          <span className="font-medium text-zinc-100">{habit.name}</span>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <span 
+                              className="w-2 h-2 rounded-full" 
+                              style={{ backgroundColor: habit.color }}
+                            />
+                            <span className="text-[10px] text-zinc-500 uppercase tracking-tight">
+                              {habit.frequency}
+                            </span>
+                            {currentStreak > 0 && (
+                              <div className="flex items-center gap-0.5 ml-2 text-orange-500">
+                                <Flame size={12} fill="currentColor" />
+                                <span className="text-xs font-bold">{currentStreak}</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm(`Are you sure you want to delete "${habit.name}"? This will also remove all its history.`)) {
+                              deleteHabit(habit.id);
+                            }
+                          }}
+                          className="opacity-0 group-hover:opacity-100 p-2 rounded-lg text-zinc-500 hover:text-red-500 hover:bg-red-500/10 transition-all duration-200"
+                          title="Delete habit"
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </div>
                     </td>
                     {dates.map((date) => {
