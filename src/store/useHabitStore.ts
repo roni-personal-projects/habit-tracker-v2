@@ -8,6 +8,7 @@ export const useHabitStore = create<HabitStore>()(
     (set) => ({
       habits: [],
       completions: [],
+      sleepLogs: [],
 
       addHabit: (habitData) => {
         const newHabit: Habit = {
@@ -56,6 +57,27 @@ export const useHabitStore = create<HabitStore>()(
             };
           }
         });
+      },
+
+      addSleepLog: (log) => {
+        set((state) => {
+          // Check if a log for this date already exists
+          const existingIndex = state.sleepLogs.findIndex((l) => l.date === log.date);
+          if (existingIndex !== -1) {
+            const updatedLogs = [...state.sleepLogs];
+            updatedLogs[existingIndex] = { ...log, id: state.sleepLogs[existingIndex].id };
+            return { sleepLogs: updatedLogs };
+          }
+          return {
+            sleepLogs: [...state.sleepLogs, { ...log, id: uuidv4() }],
+          };
+        });
+      },
+
+      deleteSleepLog: (id) => {
+        set((state) => ({
+          sleepLogs: state.sleepLogs.filter((l) => l.id !== id),
+        }));
       },
     }),
     {
