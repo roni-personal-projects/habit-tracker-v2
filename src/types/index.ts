@@ -28,10 +28,15 @@ export interface HabitStore {
   habits: Habit[];
   completions: Completion[];
   sleepLogs: SleepLog[];
-  addHabit: (habit: Omit<Habit, 'id' | 'createdAt'>) => void;
-  updateHabit: (id: string, habit: Partial<Habit>) => void;
-  deleteHabit: (id: string) => void;
-  toggleCompletion: (habitId: string, date: string) => void;
-  addSleepLog: (log: Omit<SleepLog, 'id'>) => void;
-  deleteSleepLog: (id: string) => void;
+  isLoading: boolean;
+  isInitialized: boolean;
+  userId: string | null;
+  
+  initialize: (userId: string) => Promise<void>;
+  addHabit: (habit: Omit<Habit, 'id' | 'createdAt'>) => Promise<void>;
+  updateHabit: (id: string, habit: Partial<Habit>) => Promise<void>;
+  deleteHabit: (id: string) => Promise<void>;
+  toggleCompletion: (habitId: string, date: string) => Promise<void>;
+  addSleepLog: (log: Omit<SleepLog, 'id'>) => Promise<void>;
+  deleteSleepLog: (id: string) => Promise<void>;
 }
