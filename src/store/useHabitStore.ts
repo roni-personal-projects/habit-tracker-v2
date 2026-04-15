@@ -1,8 +1,78 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { persist } from 'zustand/middleware';
 import { Habit, Completion, HabitStore, SleepLog } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/lib/supabase';
+
+// ─── DB <-> App mappers ────────────────────────────────────────────────────
+
+// Habits
+function habitFromDb(row: any): Habit {
+  return {
+    id: row.id,
+    name: row.name,
+    color: row.color,
+    frequency: row.frequency,
+    interval: row.interval,
+    createdAt: new Date(row.created_at),
+  };
+}
+
+function habitToDb(habit: Omit<Habit, 'id' | 'createdAt'>, userId: string, id: string) {
+  return {
+    id,
+    name: habit.name,
+    color: habit.color,
+    frequency: habit.frequency,
+    interval: habit.interval ?? null,
+    user_id: userId,
+    created_at: new Date().toISOString(),
+  };
+}
+
+// Completions
+function completionFromDb(row: any): Completion {
+  return {
+    id: row.id,
+    habitId: row.habit_id,
+    date: row.date,
+  };
+}
+
+function completionToDb(habitId: string, date: string, userId: string, id: string) {
+  return {
+    id,
+    habit_id: habitId,
+    date,
+    user_id: userId,
+  };
+}
+
+// Sleep Logs
+function sleepLogFromDb(row: any): SleepLog {
+  return {
+    id: row.id,
+    date: row.date,
+    sleepTime: row.sleep_time,
+    wakeTime: row.wake_time,
+    duration: row.duration,
+    category: row.category,
+  };
+}
+
+function sleepLogToDb(log: Omit<SleepLog, 'id'>, userId: string, id: string) {
+  return {
+    id,
+    date: log.date,
+    sleep_time: log.sleepTime,
+    wake_time: log.wakeTime,
+    duration: log.duration,
+    category: log.category,
+    user_id: userId,
+  };
+}
+
+// ─── Store ─────────────────────────────────────────────────────────────────
 
 export const useHabitStore = create<HabitStore>()(
   persist(
@@ -16,12 +86,12 @@ export const useHabitStore = create<HabitStore>()(
 
       initialize: async (userId: string) => {
         if (get().isInitialized && get().userId === userId) return;
-        
+
         set({ isLoading: true, userId });
 
         // 1. Fetch data from Supabase
         const [
-          { data: habitsData },
+          { data: habitsData, error: habitsError },
           { data: completionsData },
           { data: sleepLogsData }
         ] = await Promise.all([
@@ -30,77 +100,80 @@ export const useHabitStore = create<HabitStore>()(
           supabase.from('sleep_logs').select('*').eq('user_id', userId)
         ]);
 
-        // 2. Migration Check: If Supabase is empty but LocalStorage has data
+        if (habitsError) {
+          console.error('Supabase fetch error:', habitsError.message);
+          set({ isLoading: false });
+          return;
+        }
+
+        // 2. Migration: if Supabase is empty but localStorage has data
         const localHabits = get().habits;
         const localCompletions = get().completions;
         const localSleepLogs = get().sleepLogs;
 
-        if (
-          (!habitsData || habitsData.length === 0) && 
-          localHabits.length > 0
-        ) {
+        if ((!habitsData || habitsData.length === 0) && localHabits.length > 0) {
           console.log('Migrating local data to Supabase...');
-          // Migrate Habits
+
           await supabase.from('habits').insert(
-            localHabits.map(h => ({ ...h, user_id: userId }))
+            localHabits.map(h => habitToDb(h, userId, h.id))
           );
-          // Migrate Completions
           await supabase.from('completions').insert(
-            localCompletions.map(c => ({ ...c, user_id: userId }))
+            localCompletions.map(c => completionToDb(c.habitId, c.date, userId, c.id))
           );
-          // Migrate Sleep Logs
           await supabase.from('sleep_logs').insert(
-            localSleepLogs.map(s => ({ ...s, user_id: userId }))
+            localSleepLogs.map(s => sleepLogToDb(s, userId, s.id))
           );
-          
+
           // Refetch after migration
-          const { data: newHabits } = await supabase.from('habits').select('*').eq('user_id', userId);
-          const { data: newCompletions } = await supabase.from('completions').select('*').eq('user_id', userId);
-          const { data: newSleepLogs } = await supabase.from('sleep_logs').select('*').eq('user_id', userId);
-          
-          set({ 
-            habits: newHabits || [], 
-            completions: newCompletions || [], 
-            sleepLogs: newSleepLogs || [],
+          const [{ data: nh }, { data: nc }, { data: ns }] = await Promise.all([
+            supabase.from('habits').select('*').eq('user_id', userId),
+            supabase.from('completions').select('*').eq('user_id', userId),
+            supabase.from('sleep_logs').select('*').eq('user_id', userId),
+          ]);
+
+          set({
+            habits: (nh || []).map(habitFromDb),
+            completions: (nc || []).map(completionFromDb),
+            sleepLogs: (ns || []).map(sleepLogFromDb),
             isInitialized: true,
-            isLoading: false 
+            isLoading: false,
           });
         } else {
-          set({ 
-            habits: habitsData || [], 
-            completions: completionsData || [], 
-            sleepLogs: (sleepLogsData as any) || [],
+          set({
+            habits: (habitsData || []).map(habitFromDb),
+            completions: (completionsData || []).map(completionFromDb),
+            sleepLogs: (sleepLogsData || []).map(sleepLogFromDb),
             isInitialized: true,
-            isLoading: false 
+            isLoading: false,
           });
         }
 
-        // 3. Setup Realtime Listeners
+        // 3. Realtime listeners — refetch on any change
         supabase
           .channel('habits-changes')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'habits', filter: `user_id=eq.${userId}` }, 
-          async () => {
-             const { data } = await supabase.from('habits').select('*').eq('user_id', userId);
-             set({ habits: data || [] });
-          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'habits', filter: `user_id=eq.${userId}` },
+            async () => {
+              const { data } = await supabase.from('habits').select('*').eq('user_id', userId);
+              set({ habits: (data || []).map(habitFromDb) });
+            })
           .subscribe();
 
         supabase
           .channel('completions-changes')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'completions', filter: `user_id=eq.${userId}` }, 
-          async () => {
-             const { data } = await supabase.from('completions').select('*').eq('user_id', userId);
-             set({ completions: data || [] });
-          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'completions', filter: `user_id=eq.${userId}` },
+            async () => {
+              const { data } = await supabase.from('completions').select('*').eq('user_id', userId);
+              set({ completions: (data || []).map(completionFromDb) });
+            })
           .subscribe();
 
         supabase
           .channel('sleep-logs-changes')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'sleep_logs', filter: `user_id=eq.${userId}` }, 
-          async () => {
-             const { data } = await supabase.from('sleep_logs').select('*').eq('user_id', userId);
-             set({ sleepLogs: (data as any) || [] });
-          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'sleep_logs', filter: `user_id=eq.${userId}` },
+            async () => {
+              const { data } = await supabase.from('sleep_logs').select('*').eq('user_id', userId);
+              set({ sleepLogs: (data || []).map(sleepLogFromDb) });
+            })
           .subscribe();
       },
 
@@ -108,20 +181,17 @@ export const useHabitStore = create<HabitStore>()(
         const { userId } = get();
         if (!userId) return;
 
-        const newHabit = {
-          ...habitData,
-          id: uuidv4(),
-          user_id: userId,
-          created_at: new Date().toISOString()
-        };
+        const id = uuidv4();
+        const newHabit: Habit = { ...habitData, id, createdAt: new Date() };
 
         // Optimistic update
-        set((state) => ({ habits: [...state.habits, newHabit as any] }));
+        set((state) => ({ habits: [...state.habits, newHabit] }));
 
-        const { error } = await supabase.from('habits').insert([newHabit]);
+        const { error } = await supabase.from('habits').insert([habitToDb(habitData, userId, id)]);
         if (error) {
-          console.error('Error adding habit:', error);
-          // Rollback or handle error
+          console.error('Error adding habit:', error.message);
+          // Roll back
+          set((state) => ({ habits: state.habits.filter(h => h.id !== id) }));
         }
       },
 
@@ -129,19 +199,22 @@ export const useHabitStore = create<HabitStore>()(
         const { userId } = get();
         if (!userId) return;
 
-        // Optimistic update
         set((state) => ({
           habits: state.habits.map((h) => (h.id === id ? { ...h, ...updatedHabit } : h)),
         }));
 
-        await supabase.from('habits').update(updatedHabit).eq('id', id);
+        await supabase.from('habits').update({
+          name: updatedHabit.name,
+          color: updatedHabit.color,
+          frequency: updatedHabit.frequency,
+          interval: updatedHabit.interval ?? null,
+        }).eq('id', id);
       },
 
       deleteHabit: async (id) => {
         const { userId } = get();
         if (!userId) return;
 
-        // Optimistic update
         set((state) => ({
           habits: state.habits.filter((h) => h.id !== id),
           completions: state.completions.filter((c) => c.habitId !== id),
@@ -154,26 +227,19 @@ export const useHabitStore = create<HabitStore>()(
         const { userId, completions } = get();
         if (!userId) return;
 
-        const exists = completions.find(
-          (c) => c.habitId === habitId && c.date === date
-        );
+        const exists = completions.find((c) => c.habitId === habitId && c.date === date);
 
         if (exists) {
-          // Optimistic remove
-          set({
-            completions: completions.filter((c) => c.id !== exists.id)
-          });
+          set({ completions: completions.filter((c) => c.id !== exists.id) });
           await supabase.from('completions').delete().eq('id', exists.id);
         } else {
-          const newCompletion = {
-            id: uuidv4(),
-            habitId,
-            date,
-            user_id: userId
-          };
-          // Optimistic add
-          set({ completions: [...completions, newCompletion as any] });
-          await supabase.from('completions').insert([newCompletion]);
+          const id = uuidv4();
+          const newCompletion: Completion = { id, habitId, date };
+          set({ completions: [...completions, newCompletion] });
+          const { error } = await supabase.from('completions').insert([completionToDb(habitId, date, userId, id)]);
+          if (error) {
+            console.error('Error toggling completion:', error.message);
+          }
         }
       },
 
@@ -182,22 +248,31 @@ export const useHabitStore = create<HabitStore>()(
         if (!userId) return;
 
         const existingIndex = sleepLogs.findIndex((l) => l.date === log.date);
-        
+
         if (existingIndex !== -1) {
-          const logToUpdate = sleepLogs[existingIndex];
-          const updatedLog = { ...log, id: logToUpdate.id, user_id: userId };
-          
+          const existing = sleepLogs[existingIndex];
+          const updated: SleepLog = { ...log, id: existing.id };
+
           set((state) => {
             const newLogs = [...state.sleepLogs];
-            newLogs[existingIndex] = updatedLog as any;
+            newLogs[existingIndex] = updated;
             return { sleepLogs: newLogs };
           });
-          
-          await supabase.from('sleep_logs').update(log).eq('id', logToUpdate.id);
+
+          await supabase.from('sleep_logs').update({
+            sleep_time: log.sleepTime,
+            wake_time: log.wakeTime,
+            duration: log.duration,
+            category: log.category,
+          }).eq('id', existing.id);
         } else {
-          const newLog = { ...log, id: uuidv4(), user_id: userId };
-          set((state) => ({ sleepLogs: [...state.sleepLogs, newLog as any] }));
-          await supabase.from('sleep_logs').insert([newLog]);
+          const id = uuidv4();
+          const newLog: SleepLog = { ...log, id };
+          set((state) => ({ sleepLogs: [...state.sleepLogs, newLog] }));
+          const { error } = await supabase.from('sleep_logs').insert([sleepLogToDb(log, userId, id)]);
+          if (error) {
+            console.error('Error adding sleep log:', error.message);
+          }
         }
       },
 
@@ -214,8 +289,6 @@ export const useHabitStore = create<HabitStore>()(
     }),
     {
       name: 'habit-tracker-storage',
-      // Only persist habits/completions/logs for migration purposes initially
-      // Once data is in Supabase, the DB takes over.
     }
   )
 );
