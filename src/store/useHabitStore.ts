@@ -85,7 +85,9 @@ export const useHabitStore = create<HabitStore>()(
       userId: null,
 
       initialize: async (userId: string) => {
+        // Only skip if already initialized for the same user in this session
         if (get().isInitialized && get().userId === userId) return;
+        console.log('[AuthSync] Initializing store for user:', userId);
 
         set({ isLoading: true, userId });
 
@@ -289,6 +291,12 @@ export const useHabitStore = create<HabitStore>()(
     }),
     {
       name: 'habit-tracker-storage',
+      // Don't persist auth state — let it re-initialize from Clerk on every page load
+      partialize: (state) => ({
+        habits: state.habits,
+        completions: state.completions,
+        sleepLogs: state.sleepLogs,
+      }),
     }
   )
 );
