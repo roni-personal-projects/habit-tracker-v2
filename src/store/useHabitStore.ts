@@ -141,32 +141,52 @@ export const useHabitStore = create<HabitStore>()(
 
         // 2. Migration: if Supabase is empty but localStorage has data
         const localHabits = get().habits;
+        const localCategories = get().categories;
         const localCompletions = get().completions;
         const localSleepLogs = get().sleepLogs;
 
-        if ((!habitsData || habitsData.length === 0) && localHabits.length > 0) {
+        const isSupabaseEmpty = (!habitsData || habitsData.length === 0) && (!categoriesData || categoriesData.length === 0);
+        const hasLocalData = localHabits.length > 0 || localCategories.length > 0;
+
+        if (isSupabaseEmpty && hasLocalData) {
           console.log('Migrating local data to Supabase...');
 
-          await supabase.from('habits').insert(
-            localHabits.map(h => habitToDb(h, userId, h.id))
-          );
-          await supabase.from('completions').insert(
-            localCompletions.map(c => completionToDb(c.habitId, c.date, userId, c.id))
-          );
-          await supabase.from('sleep_logs').insert(
-            localSleepLogs.map(s => sleepLogToDb(s, userId, s.id))
-          );
+          // IMPORTANT: Migrate categories FIRST to avoid foreign key issues in habits
+          if (localCategories.length > 0) {
+            await supabase.from('categories').insert(
+              localCategories.map(c => categoryToDb(c, userId, c.id, c.order))
+            );
+          }
+
+          if (localHabits.length > 0) {
+            await supabase.from('habits').insert(
+              localHabits.map(h => habitToDb(h, userId, h.id))
+            );
+          }
+
+          if (localCompletions.length > 0) {
+            await supabase.from('completions').insert(
+              localCompletions.map(c => completionToDb(c.habitId, c.date, userId, c.id))
+            );
+          }
+
+          if (localSleepLogs.length > 0) {
+            await supabase.from('sleep_logs').insert(
+              localSleepLogs.map(s => sleepLogToDb(s, userId, s.id))
+            );
+          }
 
           // Refetch after migration
-          const [{ data: nh }, { data: nc }, { data: ns }] = await Promise.all([
+          const [{ data: nh }, { data: nc }, { data: ns }, { data: ncat }] = await Promise.all([
             supabase.from('habits').select('*').eq('user_id', userId).order('order', { ascending: true }),
             supabase.from('completions').select('*').eq('user_id', userId),
             supabase.from('sleep_logs').select('*').eq('user_id', userId),
+            supabase.from('categories').select('*').eq('user_id', userId).order('order', { ascending: true }),
           ]);
 
           set({
             habits: (nh || []).map(habitFromDb),
-            categories: (categoriesData || []).map(categoryFromDb),
+            categories: (ncat || []).map(categoryFromDb),
             completions: (nc || []).map(completionFromDb),
             sleepLogs: (ns || []).map(sleepLogFromDb),
             isInitialized: true,
@@ -248,15 +268,16 @@ export const useHabitStore = create<HabitStore>()(
           habits: state.habits.map((h) => (h.id === id ? { ...h, ...updatedHabit } : h)),
         }));
 
-        await supabase.from('habits').update({
-          name: updatedHabit.name,
-          color: updatedHabit.color,
-          frequency: updatedHabit.frequency,
-          interval: updatedHabit.interval ?? null,
-          selected_days: updatedHabit.selectedDays ?? null,
-          category_id: updatedHabit.categoryId ?? null,
-          order: updatedHabit.order ?? 0,
-        }).eq('id', id);
+        const dbUpdate: any = {};
+        if (updatedHabit.name !== undefined) dbUpdate.name = updatedHabit.name;
+        if (updatedHabit.color !== undefined) dbUpdate.color = updatedHabit.color;
+        if (updatedHabit.frequency !== undefined) dbUpdate.frequency = updatedHabit.frequency;
+        if (updatedHabit.interval !== undefined) dbUpdate.interval = updatedHabit.interval;
+        if (updatedHabit.selectedDays !== undefined) dbUpdate.selected_days = updatedHabit.selectedDays;
+        if (updatedHabit.categoryId !== undefined) dbUpdate.category_id = updatedHabit.categoryId;
+        if (updatedHabit.order !== undefined) dbUpdate.order = updatedHabit.order;
+
+        await supabase.from('habits').update(dbUpdate).eq('id', id);
       },
 
       deleteHabit: async (id) => {
@@ -279,7 +300,6 @@ export const useHabitStore = create<HabitStore>()(
         set({ habits: newHabits });
 
         // Update database (batch upsert)
-        // Note: habitToDb requires userId and an ID, we'll map all newHabits
         const dbHabits = newHabits.map(h => ({
           id: h.id,
           user_id: userId,
@@ -295,7 +315,6 @@ export const useHabitStore = create<HabitStore>()(
         const { error } = await supabase.from('habits').upsert(dbHabits);
         if (error) {
           console.error('Error reordering habits:', error.message);
-          // Potential rollback could be implemented here if needed
         }
       },
 
@@ -307,6 +326,7 @@ export const useHabitStore = create<HabitStore>()(
         const maxOrder = categories.length > 0 ? Math.max(...categories.map(c => c.order)) : -1;
         const newCategory: Category = { ...categoryData, id, order: maxOrder + 1 };
 
+        // Optimistic update
         set((state) => ({ categories: [...state.categories, newCategory] }));
 
         const { error } = await supabase.from('categories').insert([
@@ -315,6 +335,7 @@ export const useHabitStore = create<HabitStore>()(
 
         if (error) {
           console.error('Error adding category:', error.message);
+          // Roll back
           set((state) => ({ categories: state.categories.filter(c => c.id !== id) }));
         }
       },
@@ -327,12 +348,13 @@ export const useHabitStore = create<HabitStore>()(
           categories: state.categories.map((c) => (c.id === id ? { ...c, ...updatedCategory } : c)),
         }));
 
-        await supabase.from('categories').update({
-          name: updatedCategory.name,
-          icon: updatedCategory.icon,
-          color: updatedCategory.color,
-          order: updatedCategory.order,
-        }).eq('id', id);
+        const dbUpdate: any = {};
+        if (updatedCategory.name !== undefined) dbUpdate.name = updatedCategory.name;
+        if (updatedCategory.icon !== undefined) dbUpdate.icon = updatedCategory.icon;
+        if (updatedCategory.color !== undefined) dbUpdate.color = updatedCategory.color;
+        if (updatedCategory.order !== undefined) dbUpdate.order = updatedCategory.order;
+
+        await supabase.from('categories').update(dbUpdate).eq('id', id);
       },
 
       deleteCategory: async (id) => {
