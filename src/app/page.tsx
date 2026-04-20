@@ -6,10 +6,22 @@ import HabitTable from '@/components/HabitTable';
 import HabitForm from '@/components/HabitForm';
 import { Plus, Flame, Target, CheckCircle2, Moon } from 'lucide-react';
 import { calculateStreak } from '@/lib/streak-logic';
+import { Habit } from '@/types';
 
 export default function Home() {
   const { habits, completions, sleepLogs } = useHabitStore();
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
+
+  const handleEditHabit = (habit: Habit) => {
+    setEditingHabit(habit);
+    setIsFormOpen(true);
+  };
+
+  const handleCloseForm = () => {
+    setIsFormOpen(false);
+    setEditingHabit(null);
+  };
 
   // Derived stats
   const totalHabits = habits.length;
@@ -96,10 +108,14 @@ export default function Home() {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-zinc-100">Weekly Tracker</h2>
         </div>
-        <HabitTable />
+        <HabitTable onEditHabit={handleEditHabit} />
       </section>
 
-      <HabitForm isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} />
+      <HabitForm 
+        isOpen={isFormOpen} 
+        onClose={handleCloseForm} 
+        habit={editingHabit} 
+      />
     </div>
   );
 }
