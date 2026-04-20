@@ -198,7 +198,22 @@ export const getCompletionStats = (habit: Habit, completions: Completion[]) => {
   const daysSinceCreation = Math.max(1, differenceInCalendarDays(new Date(), createdDate) + 1);
   
   let expectedCompletions = daysSinceCreation;
-  if (habit.frequency === 'weekly') expectedCompletions = Math.ceil(daysSinceCreation / 7);
+  if (habit.frequency === 'weekly') {
+    if (habit.selectedDays && habit.selectedDays.length > 0) {
+      expectedCompletions = 0;
+      let checkDate = startOfDay(createdDate);
+      const today = startOfDay(new Date());
+      while (checkDate <= today) {
+        if (habit.selectedDays.includes(checkDate.getDay())) {
+          expectedCompletions++;
+        }
+        checkDate = subDays(checkDate, -1);
+      }
+      expectedCompletions = Math.max(1, expectedCompletions);
+    } else {
+      expectedCompletions = Math.ceil(daysSinceCreation / 7);
+    }
+  }
   if (habit.frequency === 'monthly') expectedCompletions = Math.ceil(daysSinceCreation / 30);
   
   const rate = Math.min(100, Math.round((totalCompleted / expectedCompletions) * 100));
