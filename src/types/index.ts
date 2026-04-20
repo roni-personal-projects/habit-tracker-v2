@@ -1,5 +1,13 @@
 export type Frequency = 'daily' | 'weekly' | 'monthly' | 'custom';
 
+export interface Category {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+  order: number;
+}
+
 export interface Habit {
   id: string;
   name: string;
@@ -7,6 +15,7 @@ export interface Habit {
   frequency: Frequency;
   interval?: number; // for 'custom'
   selectedDays?: number[]; // [0-6] for Weekly specific days
+  categoryId?: string;
   order: number;
   createdAt: Date;
 }
@@ -28,6 +37,7 @@ export interface SleepLog {
 
 export interface HabitStore {
   habits: Habit[];
+  categories: Category[];
   completions: Completion[];
   sleepLogs: SleepLog[];
   isLoading: boolean;
@@ -39,6 +49,11 @@ export interface HabitStore {
   updateHabit: (id: string, habit: Partial<Habit>) => Promise<void>;
   deleteHabit: (id: string) => Promise<void>;
   reorderHabits: (habits: Habit[]) => Promise<void>;
+
+  addCategory: (category: Omit<Category, 'id' | 'order'>) => Promise<void>;
+  updateCategory: (id: string, category: Partial<Category>) => Promise<void>;
+  deleteCategory: (id: string) => Promise<void>;
+  
   toggleCompletion: (habitId: string, date: string) => Promise<void>;
   addSleepLog: (log: Omit<SleepLog, 'id'>) => Promise<void>;
   deleteSleepLog: (id: string) => Promise<void>;

@@ -4,7 +4,7 @@ import React, { useMemo } from 'react';
 import { format, subDays, eachDayOfInterval, startOfDay, isToday as isTodayFn, isFuture } from 'date-fns';
 import { useHabitStore } from '@/store/useHabitStore';
 import { calculateStreak } from '@/lib/streak-logic';
-import { Check, Flame, Plus, ChevronLeft, ChevronRight, RotateCcw, Trash2, GripVertical } from 'lucide-react';
+import { Check, Flame, Plus, ChevronLeft, ChevronRight, RotateCcw, Trash2, GripVertical, Edit2, Activity, Book, Brain, Briefcase, Camera, Code, Coffee, Coins, Dumbbell, Gamepad, GraduationCap, Heart, Home, Image, Laptop, Languages, Lightbulb, Music, Palette, Pill, Plane, Play, Rocket, ShoppingCart, Smile, Star, Target, Tv, Utensils, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   DndContext,
@@ -21,7 +21,16 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Habit } from '@/types';
+import { Habit, Category } from '@/types';
+
+const ICONS = {
+  Activity, Book, Brain, Briefcase, Camera, 
+  Code, Coffee, Coins, Dumbbell, Gamepad, 
+  GraduationCap, Heart, Home, Image, Laptop, 
+  Languages, Lightbulb, Music, Palette, Pill, 
+  Plane, Play, Rocket, ShoppingCart, Smile, 
+  Star, Target, Tv, Utensils, Zap 
+};
 
 interface SortableHabitRowProps {
   habit: Habit;
@@ -29,9 +38,10 @@ interface SortableHabitRowProps {
   completions: any[];
   toggleCompletion: (id: string, date: string) => void;
   deleteHabit: (id: string) => void;
+  onEdit: (habit: Habit) => void;
 }
 
-function SortableHabitRow({ habit, dates, completions, toggleCompletion, deleteHabit }: SortableHabitRowProps) {
+function SortableHabitRow({ habit, dates, completions, toggleCompletion, deleteHabit, onEdit }: SortableHabitRowProps) {
   const {
     attributes,
     listeners,
@@ -91,18 +101,30 @@ function SortableHabitRow({ habit, dates, completions, toggleCompletion, deleteH
                 )}
               </div>
             </div>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (window.confirm(`Are you sure you want to delete "${habit.name}"? This will also remove all its history.`)) {
-                  deleteHabit(habit.id);
-                }
-              }}
-              className="opacity-0 group-hover:opacity-100 p-2 rounded-lg text-zinc-500 hover:text-red-500 hover:bg-red-500/10 transition-all duration-200"
-              title="Delete habit"
-            >
-              <Trash2 size={16} />
-            </button>
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(habit);
+                }}
+                className="p-2 rounded-lg text-zinc-500 hover:text-blue-500 hover:bg-blue-500/10 transition-all"
+                title="Edit habit"
+              >
+                <Edit2 size={14} />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (window.confirm(`Are you sure you want to delete "${habit.name}"? This will also remove all its history.`)) {
+                    deleteHabit(habit.id);
+                  }
+                }}
+                className="p-2 rounded-lg text-zinc-500 hover:text-red-500 hover:bg-red-500/10 transition-all"
+                title="Delete habit"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
           </div>
         </div>
       </td>
@@ -153,8 +175,12 @@ function SortableHabitRow({ habit, dates, completions, toggleCompletion, deleteH
   );
 }
 
-export default function HabitTable() {
-  const { habits, completions, toggleCompletion, deleteHabit, reorderHabits } = useHabitStore();
+interface HabitTableProps {
+  onEditHabit: (habit: Habit) => void;
+}
+
+export default function HabitTable({ onEditHabit }: HabitTableProps) {
+  const { habits, categories, completions, toggleCompletion, deleteHabit, reorderHabits } = useHabitStore();
   const [offset, setOffset] = React.useState(0);
 
   const sensors = useSensors(
@@ -171,6 +197,17 @@ export default function HabitTable() {
     const start = subDays(end, daysCount - 1);
     return eachDayOfInterval({ start, end });
   }, [offset]);
+
+  // Group habits by category
+  const groupedData = useMemo(() => {
+    const ungrouped = habits.filter(h => !h.categoryId);
+    const grouped = categories.map(cat => ({
+      category: cat,
+      habits: habits.filter(h => h.categoryId === cat.id)
+    })).filter(g => g.habits.length > 0);
+
+    return { ungrouped, grouped };
+  }, [habits, categories]);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -265,7 +302,8 @@ export default function HabitTable() {
                   items={habits.map(h => h.id)} 
                   strategy={verticalListSortingStrategy}
                 >
-                  {habits.map((habit) => (
+                  {/* Ungrouped Habits */}
+                  {groupedData.ungrouped.map((habit) => (
                     <SortableHabitRow 
                       key={habit.id}
                       habit={habit}
@@ -273,8 +311,48 @@ export default function HabitTable() {
                       completions={completions}
                       toggleCompletion={toggleCompletion}
                       deleteHabit={deleteHabit}
+                      onEdit={onEditHabit}
                     />
                   ))}
+
+                  {/* Grouped by Category */}
+                  {groupedData.grouped.map(({ category, habits: catHabits }) => {
+                    const IconComp = (ICONS as any)[category.icon] || Activity;
+                    return (
+                      <React.Fragment key={category.id}>
+                        <tr className="bg-zinc-900/80 backdrop-blur-sm sticky-header border-b border-zinc-800">
+                          <td 
+                            colSpan={dates.length + 1} 
+                            className="px-4 py-2"
+                            style={{ backgroundColor: `${category.color}10` }}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div 
+                                className="p-1 rounded-md"
+                                style={{ color: category.color }}
+                              >
+                                <IconComp size={14} />
+                              </div>
+                              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: category.color }}>
+                                {category.name}
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                        {catHabits.map((habit) => (
+                          <SortableHabitRow 
+                            key={habit.id}
+                            habit={habit}
+                            dates={dates}
+                            completions={completions}
+                            toggleCompletion={toggleCompletion}
+                            deleteHabit={deleteHabit}
+                            onEdit={onEditHabit}
+                          />
+                        ))}
+                      </React.Fragment>
+                    );
+                  })}
                 </SortableContext>
               )}
             </tbody>

@@ -7,11 +7,20 @@ import FrequencyChart from '@/components/charts/FrequencyChart';
 import GlobalPieChart from '@/components/charts/GlobalPieChart';
 import MonthlyHabitPie from '@/components/charts/MonthlyHabitPie';
 import { calculateStreak, getCompletionStats } from '@/lib/streak-logic';
-import { Flame, Target, TrendingUp, Calendar, PieChart as PieChartIcon } from 'lucide-react';
+import { Flame, Target, TrendingUp, Calendar, PieChart as PieChartIcon, Activity, Book, Brain, Briefcase, Camera, Code, Coffee, Coins, Dumbbell, Gamepad, GraduationCap, Heart, Home, Image, Laptop, Languages, Lightbulb, Music, Palette, Pill, Plane, Play, Rocket, ShoppingCart, Smile, Star, Target as TargetIcon, Tv, Utensils, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+const ICONS = {
+  Activity, Book, Brain, Briefcase, Camera, 
+  Code, Coffee, Coins, Dumbbell, Gamepad, 
+  GraduationCap, Heart, Home, Image, Laptop, 
+  Languages, Lightbulb, Music, Palette, Pill, 
+  Plane, Play, Rocket, ShoppingCart, Smile, 
+  Star, Target: TargetIcon, Tv, Utensils, Zap 
+};
+
 export default function AnalyticsPage() {
-  const { habits, completions } = useHabitStore();
+  const { habits, categories, completions } = useHabitStore();
 
   if (habits.length === 0) {
     return (
@@ -30,6 +39,14 @@ export default function AnalyticsPage() {
   const avgCompletionRate = habits.length > 0
     ? Math.round(habits.reduce((acc, h) => acc + getCompletionStats(h, completions).rate, 0) / habits.length)
     : 0;
+
+  // Category stats
+  const categoryStats = categories.map(cat => {
+    const catHabits = habits.filter(h => h.categoryId === cat.id);
+    if (catHabits.length === 0) return null;
+    const avgRate = Math.round(catHabits.reduce((acc, h) => acc + getCompletionStats(h, completions).rate, 0) / catHabits.length);
+    return { ...cat, avgRate };
+  }).filter(Boolean);
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
@@ -70,6 +87,45 @@ export default function AnalyticsPage() {
           <GlobalPieChart />
         </section>
       </div>
+
+      {/* Category Mastery Section */}
+      {categoryStats.length > 0 && (
+        <section className="space-y-6">
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <PieChartIcon size={22} className="text-violet-500" />
+            Category Mastery
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {categoryStats.map((cat: any) => {
+              const IconComp = (ICONS as any)[cat.icon] || Activity;
+              return (
+                <div key={cat.id} className="glass-card p-6 rounded-2xl border border-zinc-800/50 relative overflow-hidden group">
+                  <div 
+                    className="absolute inset-0 opacity-[0.03] group-hover:opacity-[0.07] transition-opacity pointer-events-none" 
+                    style={{ backgroundColor: cat.color }}
+                  />
+                  <div className="flex items-center justify-between mb-4">
+                    <div 
+                      className="w-10 h-10 rounded-xl flex items-center justify-center font-bold"
+                      style={{ backgroundColor: `${cat.color}20`, color: cat.color }}
+                    >
+                      <IconComp size={20} />
+                    </div>
+                    <span className="text-2xl font-black text-white">{cat.avgRate}%</span>
+                  </div>
+                  <h3 className="font-bold text-white mb-1">{cat.name}</h3>
+                  <div className="h-1 w-full bg-zinc-800 rounded-full mt-2">
+                    <div 
+                      className="h-full rounded-full transition-all duration-1000"
+                      style={{ width: `${cat.avgRate}%`, backgroundColor: cat.color }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* Monthly Mastery Section */}
       <section className="space-y-6">
@@ -117,7 +173,17 @@ export default function AnalyticsPage() {
                     </div>
                     <div>
                       <h3 className="font-bold text-white leading-tight">{habit.name}</h3>
-                      <p className="text-xs text-zinc-500 uppercase tracking-tight">{habit.frequency}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-[10px] text-zinc-500 uppercase tracking-tight font-bold">{habit.frequency}</p>
+                        {habit.categoryId && (
+                          <>
+                            <span className="w-1 h-1 rounded-full bg-zinc-700" />
+                            <span className="text-[10px] text-zinc-500 font-bold uppercase">
+                              {categories.find(c => c.id === habit.categoryId)?.name}
+                            </span>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="text-right">

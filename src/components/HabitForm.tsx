@@ -2,9 +2,10 @@
 
 import React, { useState } from 'react';
 import { useHabitStore } from '@/store/useHabitStore';
-import { Frequency } from '@/types';
-import { X, Check, Plus } from 'lucide-react';
+import { Frequency, Habit } from '@/types';
+import { X, Check, Plus, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import CategoryManager from './CategoryManager';
 
 const COLORS = [
   '#3b82f6', // blue
@@ -19,15 +20,37 @@ const COLORS = [
 interface HabitFormProps {
   isOpen: boolean;
   onClose: () => void;
+  habit?: Habit | null; // For editing
 }
 
-export default function HabitForm({ isOpen, onClose }: HabitFormProps) {
-  const { addHabit } = useHabitStore();
-  const [name, setName] = useState('');
-  const [color, setColor] = useState(COLORS[0]);
-  const [frequency, setFrequency] = useState<Frequency>('daily');
-  const [interval, setIntervalValue] = useState(1);
-  const [selectedDays, setSelectedDays] = useState<number[]>([]);
+export default function HabitForm({ isOpen, onClose, habit }: HabitFormProps) {
+  const { addHabit, updateHabit, categories } = useHabitStore();
+  const [name, setName] = useState(habit?.name || '');
+  const [color, setColor] = useState(habit?.color || COLORS[0]);
+  const [frequency, setFrequency] = useState<Frequency>(habit?.frequency || 'daily');
+  const [interval, setIntervalValue] = useState(habit?.interval || 1);
+  const [selectedDays, setSelectedDays] = useState<number[]>(habit?.selectedDays || []);
+  const [categoryId, setCategoryId] = useState<string | undefined>(habit?.categoryId);
+  const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
+
+  // Sync state with habit if editing
+  React.useEffect(() => {
+    if (habit) {
+      setName(habit.name);
+      setColor(habit.color);
+      setFrequency(habit.frequency);
+      setIntervalValue(habit.interval || 1);
+      setSelectedDays(habit.selectedDays || []);
+      setCategoryId(habit.categoryId);
+    } else {
+      setName('');
+      setColor(COLORS[0]);
+      setFrequency('daily');
+      setIntervalValue(1);
+      setSelectedDays([]);
+      setCategoryId(undefined);
+    }
+  }, [habit, isOpen]);
 
   if (!isOpen) return null;
 
@@ -41,13 +64,20 @@ export default function HabitForm({ isOpen, onClose }: HabitFormProps) {
     e.preventDefault();
     if (!name.trim()) return;
 
-    addHabit({
+    const habitData = {
       name,
       color,
       frequency,
       interval: frequency === 'custom' ? interval : undefined,
       selectedDays: frequency === 'weekly' && selectedDays.length > 0 ? selectedDays : undefined,
-    });
+      categoryId,
+    };
+
+    if (habit) {
+      updateHabit(habit.id, habitData);
+    } else {
+      addHabit(habitData);
+    }
     
     // Reset and close
     setName('');
@@ -62,7 +92,9 @@ export default function HabitForm({ isOpen, onClose }: HabitFormProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
       <div className="w-full max-w-md glass-card rounded-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
         <div className="p-6 border-b border-zinc-800 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-zinc-100">Create New Habit</h2>
+          <h2 className="text-xl font-bold text-zinc-100">
+            {habit ? 'Edit Habit' : 'Create New Habit'}
+          </h2>
           <button onClick={onClose} className="text-zinc-500 hover:text-zinc-100 transition-colors">
             <X size={20} />
           </button>
@@ -129,6 +161,50 @@ export default function HabitForm({ isOpen, onClose }: HabitFormProps) {
             </div>
           )}
 
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold uppercase tracking-wider text-zinc-500">Category</label>
+              <button 
+                type="button"
+                onClick={() => setIsCategoryManagerOpen(true)}
+                className="text-[10px] flex items-center gap-1 text-blue-500 hover:text-blue-400 font-bold uppercase transition-colors"
+              >
+                <Settings size={12} />
+                Manage
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
+              <button
+                type="button"
+                onClick={() => setCategoryId(undefined)}
+                className={cn(
+                  "px-3 py-2 rounded-xl text-xs font-bold transition-all border text-left flex items-center gap-2",
+                  !categoryId 
+                    ? "bg-zinc-100 text-zinc-900 border-white shadow-lg" 
+                    : "bg-zinc-800/50 border-zinc-700 text-zinc-500 hover:border-zinc-600"
+                )}
+              >
+                <div className="w-2 h-2 rounded-full bg-zinc-600" />
+                None
+              </button>
+              {categories.map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setCategoryId(cat.id)}
+                  className={cn(
+                    "px-3 py-2 rounded-xl text-xs font-bold transition-all border text-left flex items-center gap-2",
+                    categoryId === cat.id 
+                      ? "bg-zinc-100 text-zinc-900 border-white shadow-lg" 
+                      : "bg-zinc-800/50 border-zinc-700 text-zinc-400 hover:border-zinc-600"
+                  )}
+                >
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.color }} />
+                  {cat.name}
+                </button>
+              ))}
+            </div>
+          </div>
           {frequency === 'custom' && (
             <div className="space-y-2 animate-in slide-in-from-top-2 duration-200">
               <label className="text-xs font-bold uppercase tracking-wider text-zinc-500">Every N Days</label>
@@ -188,11 +264,16 @@ export default function HabitForm({ isOpen, onClose }: HabitFormProps) {
               type="submit"
               className="w-full bg-white text-zinc-950 font-bold py-3 rounded-xl hover:bg-zinc-200 transition-colors shadow-lg"
             >
-              Start Tracking
+              {habit ? 'Save Changes' : 'Start Tracking'}
             </button>
           </div>
         </form>
       </div>
+
+      <CategoryManager 
+        isOpen={isCategoryManagerOpen} 
+        onClose={() => setIsCategoryManagerOpen(false)} 
+      />
     </div>
   );
 }

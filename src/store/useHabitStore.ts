@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Habit, Completion, HabitStore, SleepLog } from '@/types';
+import { Habit, Category, Completion, HabitStore, SleepLog } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/lib/supabase';
 
@@ -15,8 +15,31 @@ function habitFromDb(row: any): Habit {
     frequency: row.frequency,
     interval: row.interval,
     selectedDays: row.selected_days,
+    categoryId: row.category_id,
     order: row.order || 0,
     createdAt: new Date(row.created_at),
+  };
+}
+
+// Categories
+function categoryFromDb(row: any): Category {
+  return {
+    id: row.id,
+    name: row.name,
+    icon: row.icon,
+    color: row.color,
+    order: row.order || 0,
+  };
+}
+
+function categoryToDb(category: Omit<Category, 'id' | 'order'>, userId: string, id: string, order: number) {
+  return {
+    id,
+    name: category.name,
+    icon: category.icon,
+    color: category.color,
+    order,
+    user_id: userId,
   };
 }
 
@@ -28,6 +51,7 @@ function habitToDb(habit: Omit<Habit, 'id' | 'createdAt'>, userId: string, id: s
     frequency: habit.frequency,
     interval: habit.interval ?? null,
     selected_days: habit.selectedDays ?? null,
+    category_id: habit.categoryId ?? null,
     order: habit.order ?? 0,
     user_id: userId,
     created_at: new Date().toISOString(),
@@ -82,6 +106,7 @@ export const useHabitStore = create<HabitStore>()(
   persist(
     (set, get) => ({
       habits: [],
+      categories: [],
       completions: [],
       sleepLogs: [],
       isLoading: false,
@@ -98,10 +123,12 @@ export const useHabitStore = create<HabitStore>()(
         // 1. Fetch data from Supabase
         const [
           { data: habitsData, error: habitsError },
+          { data: categoriesData },
           { data: completionsData },
           { data: sleepLogsData }
         ] = await Promise.all([
           supabase.from('habits').select('*').eq('user_id', userId).order('order', { ascending: true }),
+          supabase.from('categories').select('*').eq('user_id', userId).order('order', { ascending: true }),
           supabase.from('completions').select('*').eq('user_id', userId),
           supabase.from('sleep_logs').select('*').eq('user_id', userId)
         ]);
@@ -139,6 +166,7 @@ export const useHabitStore = create<HabitStore>()(
 
           set({
             habits: (nh || []).map(habitFromDb),
+            categories: (categoriesData || []).map(categoryFromDb),
             completions: (nc || []).map(completionFromDb),
             sleepLogs: (ns || []).map(sleepLogFromDb),
             isInitialized: true,
@@ -147,6 +175,7 @@ export const useHabitStore = create<HabitStore>()(
         } else {
           set({
             habits: (habitsData || []).map(habitFromDb),
+            categories: (categoriesData || []).map(categoryFromDb),
             completions: (completionsData || []).map(completionFromDb),
             sleepLogs: (sleepLogsData || []).map(sleepLogFromDb),
             isInitialized: true,
@@ -161,6 +190,15 @@ export const useHabitStore = create<HabitStore>()(
             async () => {
               const { data } = await supabase.from('habits').select('*').eq('user_id', userId).order('order', { ascending: true });
               set({ habits: (data || []).map(habitFromDb) });
+            })
+          .subscribe();
+
+        supabase
+          .channel('categories-changes')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'categories', filter: `user_id=eq.${userId}` },
+            async () => {
+              const { data } = await supabase.from('categories').select('*').eq('user_id', userId).order('order', { ascending: true });
+              set({ categories: (data || []).map(categoryFromDb) });
             })
           .subscribe();
 
@@ -216,6 +254,7 @@ export const useHabitStore = create<HabitStore>()(
           frequency: updatedHabit.frequency,
           interval: updatedHabit.interval ?? null,
           selected_days: updatedHabit.selectedDays ?? null,
+          category_id: updatedHabit.categoryId ?? null,
           order: updatedHabit.order ?? 0,
         }).eq('id', id);
       },
@@ -258,6 +297,56 @@ export const useHabitStore = create<HabitStore>()(
           console.error('Error reordering habits:', error.message);
           // Potential rollback could be implemented here if needed
         }
+      },
+
+      addCategory: async (categoryData) => {
+        const { userId, categories } = get();
+        if (!userId) return;
+
+        const id = uuidv4();
+        const maxOrder = categories.length > 0 ? Math.max(...categories.map(c => c.order)) : -1;
+        const newCategory: Category = { ...categoryData, id, order: maxOrder + 1 };
+
+        set((state) => ({ categories: [...state.categories, newCategory] }));
+
+        const { error } = await supabase.from('categories').insert([
+          categoryToDb(categoryData, userId, id, maxOrder + 1)
+        ]);
+
+        if (error) {
+          console.error('Error adding category:', error.message);
+          set((state) => ({ categories: state.categories.filter(c => c.id !== id) }));
+        }
+      },
+
+      updateCategory: async (id, updatedCategory) => {
+        const { userId } = get();
+        if (!userId) return;
+
+        set((state) => ({
+          categories: state.categories.map((c) => (c.id === id ? { ...c, ...updatedCategory } : c)),
+        }));
+
+        await supabase.from('categories').update({
+          name: updatedCategory.name,
+          icon: updatedCategory.icon,
+          color: updatedCategory.color,
+          order: updatedCategory.order,
+        }).eq('id', id);
+      },
+
+      deleteCategory: async (id) => {
+        const { userId } = get();
+        if (!userId) return;
+
+        set((state) => ({
+          categories: state.categories.filter((c) => c.id !== id),
+          habits: state.habits.map(h => h.categoryId === id ? { ...h, categoryId: undefined } : h)
+        }));
+
+        // In Supabase, if we have a foreign key, we might need to set it to null first or cascade
+        await supabase.from('habits').update({ category_id: null }).eq('category_id', id);
+        await supabase.from('categories').delete().eq('id', id);
       },
 
       toggleCompletion: async (habitId, date) => {
@@ -329,6 +418,7 @@ export const useHabitStore = create<HabitStore>()(
       // Don't persist auth state — let it re-initialize from Clerk on every page load
       partialize: (state) => ({
         habits: state.habits,
+        categories: state.categories,
         completions: state.completions,
         sleepLogs: state.sleepLogs,
       }),
