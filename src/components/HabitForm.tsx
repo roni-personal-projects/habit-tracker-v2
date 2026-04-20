@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useHabitStore } from '@/store/useHabitStore';
 import { Frequency } from '@/types';
-import { X, Check } from 'lucide-react';
+import { X, Check, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const COLORS = [
@@ -144,7 +144,7 @@ export default function HabitForm({ isOpen, onClose }: HabitFormProps) {
 
           <div className="space-y-2">
             <label className="text-xs font-bold uppercase tracking-wider text-zinc-500">Pick a Color</label>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-3 items-center">
               {COLORS.map((c) => (
                 <button
                   key={c}
@@ -159,6 +159,27 @@ export default function HabitForm({ isOpen, onClose }: HabitFormProps) {
                   {color === c && <Check size={14} className="text-white" />}
                 </button>
               ))}
+              <div className="relative w-8 h-8 group">
+                <input
+                  type="color"
+                  value={color}
+                  onChange={(e) => setColor(e.target.value)}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                />
+                <div 
+                  className={cn(
+                    "w-8 h-8 rounded-full border border-zinc-700 flex items-center justify-center transition-all bg-zinc-800",
+                    !COLORS.includes(color) && "ring-2 ring-white ring-offset-2 ring-offset-zinc-900 scale-110"
+                  )}
+                  style={{ backgroundColor: !COLORS.includes(color) ? color : undefined }}
+                >
+                  {!COLORS.includes(color) ? (
+                    <Check size={14} className="text-white" />
+                  ) : (
+                    <Plus size={14} className="text-zinc-500 group-hover:text-zinc-300" />
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 

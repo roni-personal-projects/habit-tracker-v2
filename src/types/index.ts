@@ -7,6 +7,7 @@ export interface Habit {
   frequency: Frequency;
   interval?: number; // for 'custom'
   selectedDays?: number[]; // [0-6] for Weekly specific days
+  order: number;
   createdAt: Date;
 }
 
@@ -34,9 +35,10 @@ export interface HabitStore {
   userId: string | null;
   
   initialize: (userId: string) => Promise<void>;
-  addHabit: (habit: Omit<Habit, 'id' | 'createdAt'>) => Promise<void>;
+  addHabit: (habit: Omit<Habit, 'id' | 'createdAt' | 'order'>) => Promise<void>;
   updateHabit: (id: string, habit: Partial<Habit>) => Promise<void>;
   deleteHabit: (id: string) => Promise<void>;
+  reorderHabits: (habits: Habit[]) => Promise<void>;
   toggleCompletion: (habitId: string, date: string) => Promise<void>;
   addSleepLog: (log: Omit<SleepLog, 'id'>) => Promise<void>;
   deleteSleepLog: (id: string) => Promise<void>;

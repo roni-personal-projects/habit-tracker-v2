@@ -15,6 +15,7 @@ function habitFromDb(row: any): Habit {
     frequency: row.frequency,
     interval: row.interval,
     selectedDays: row.selected_days,
+    order: row.order || 0,
     createdAt: new Date(row.created_at),
   };
 }
@@ -27,6 +28,7 @@ function habitToDb(habit: Omit<Habit, 'id' | 'createdAt'>, userId: string, id: s
     frequency: habit.frequency,
     interval: habit.interval ?? null,
     selected_days: habit.selectedDays ?? null,
+    order: habit.order ?? 0,
     user_id: userId,
     created_at: new Date().toISOString(),
   };
@@ -99,7 +101,7 @@ export const useHabitStore = create<HabitStore>()(
           { data: completionsData },
           { data: sleepLogsData }
         ] = await Promise.all([
-          supabase.from('habits').select('*').eq('user_id', userId),
+          supabase.from('habits').select('*').eq('user_id', userId).order('order', { ascending: true }),
           supabase.from('completions').select('*').eq('user_id', userId),
           supabase.from('sleep_logs').select('*').eq('user_id', userId)
         ]);
@@ -130,7 +132,7 @@ export const useHabitStore = create<HabitStore>()(
 
           // Refetch after migration
           const [{ data: nh }, { data: nc }, { data: ns }] = await Promise.all([
-            supabase.from('habits').select('*').eq('user_id', userId),
+            supabase.from('habits').select('*').eq('user_id', userId).order('order', { ascending: true }),
             supabase.from('completions').select('*').eq('user_id', userId),
             supabase.from('sleep_logs').select('*').eq('user_id', userId),
           ]);
@@ -157,7 +159,7 @@ export const useHabitStore = create<HabitStore>()(
           .channel('habits-changes')
           .on('postgres_changes', { event: '*', schema: 'public', table: 'habits', filter: `user_id=eq.${userId}` },
             async () => {
-              const { data } = await supabase.from('habits').select('*').eq('user_id', userId);
+              const { data } = await supabase.from('habits').select('*').eq('user_id', userId).order('order', { ascending: true });
               set({ habits: (data || []).map(habitFromDb) });
             })
           .subscribe();
@@ -184,14 +186,15 @@ export const useHabitStore = create<HabitStore>()(
       addHabit: async (habitData) => {
         const { userId } = get();
         if (!userId) return;
-
+        const { habits } = get();
+        const maxOrder = habits.length > 0 ? Math.max(...habits.map(h => h.order)) : -1;
         const id = uuidv4();
-        const newHabit: Habit = { ...habitData, id, createdAt: new Date() };
+        const newHabit: Habit = { ...habitData, id, order: maxOrder + 1, createdAt: new Date() };
 
         // Optimistic update
         set((state) => ({ habits: [...state.habits, newHabit] }));
 
-        const { error } = await supabase.from('habits').insert([habitToDb(habitData, userId, id)]);
+        const { error } = await supabase.from('habits').insert([habitToDb(newHabit, userId, id)]);
         if (error) {
           console.error('Error adding habit:', error.message);
           // Roll back
@@ -213,6 +216,7 @@ export const useHabitStore = create<HabitStore>()(
           frequency: updatedHabit.frequency,
           interval: updatedHabit.interval ?? null,
           selected_days: updatedHabit.selectedDays ?? null,
+          order: updatedHabit.order ?? 0,
         }).eq('id', id);
       },
 
@@ -226,6 +230,34 @@ export const useHabitStore = create<HabitStore>()(
         }));
 
         await supabase.from('habits').delete().eq('id', id);
+      },
+
+      reorderHabits: async (newHabits) => {
+        const { userId } = get();
+        if (!userId) return;
+
+        // Optimistic update
+        set({ habits: newHabits });
+
+        // Update database (batch upsert)
+        // Note: habitToDb requires userId and an ID, we'll map all newHabits
+        const dbHabits = newHabits.map(h => ({
+          id: h.id,
+          user_id: userId,
+          name: h.name,
+          color: h.color,
+          frequency: h.frequency,
+          interval: h.interval ?? null,
+          selected_days: h.selectedDays ?? null,
+          order: h.order,
+          created_at: h.createdAt.toISOString()
+        }));
+
+        const { error } = await supabase.from('habits').upsert(dbHabits);
+        if (error) {
+          console.error('Error reordering habits:', error.message);
+          // Potential rollback could be implemented here if needed
+        }
       },
 
       toggleCompletion: async (habitId, date) => {
