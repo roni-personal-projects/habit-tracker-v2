@@ -100,9 +100,11 @@ export default function HabitTable() {
                               className="w-2 h-2 rounded-full" 
                               style={{ backgroundColor: habit.color }}
                             />
-                            <span className="text-[10px] text-zinc-500 uppercase tracking-tight">
-                              {habit.frequency}
-                            </span>
+                             <span className="text-[10px] text-zinc-500 uppercase tracking-tight">
+                               {habit.frequency === 'weekly' && habit.selectedDays && habit.selectedDays.length > 0
+                                 ? habit.selectedDays.map(d => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d]).join(', ')
+                                 : habit.frequency}
+                             </span>
                             {currentStreak > 0 && (
                               <div className="flex items-center gap-0.5 ml-2 text-orange-500">
                                 <Flame size={12} fill="currentColor" />
@@ -130,14 +132,18 @@ export default function HabitTable() {
                       const isCompleted = completions.some(
                         (c) => c.habitId === habit.id && c.date === dateStr
                       );
+                      const isDue = habit.selectedDays && habit.selectedDays.length > 0 
+                        ? habit.selectedDays.includes(date.getDay())
+                        : true;
                       const future = isFuture(date) && !isTodayFn(date);
 
                       return (
                         <td 
                           key={dateStr}
                           className={cn(
-                            "p-0 border-r border-zinc-900 last:border-r-0",
-                            future ? "opacity-20 cursor-not-allowed" : "cursor-pointer"
+                            "p-0 border-r border-zinc-900 last:border-r-0 transition-opacity",
+                            future ? "opacity-20 cursor-not-allowed" : "cursor-pointer",
+                            !isDue && !isCompleted && "opacity-30"
                           )}
                           onClick={() => !future && toggleCompletion(habit.id, dateStr)}
                         >

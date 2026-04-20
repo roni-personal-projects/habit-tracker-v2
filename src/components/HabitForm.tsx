@@ -27,8 +27,15 @@ export default function HabitForm({ isOpen, onClose }: HabitFormProps) {
   const [color, setColor] = useState(COLORS[0]);
   const [frequency, setFrequency] = useState<Frequency>('daily');
   const [interval, setIntervalValue] = useState(1);
+  const [selectedDays, setSelectedDays] = useState<number[]>([]);
 
   if (!isOpen) return null;
+
+  const toggleDay = (day: number) => {
+    setSelectedDays(prev => 
+      prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day].sort()
+    );
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,6 +46,7 @@ export default function HabitForm({ isOpen, onClose }: HabitFormProps) {
       color,
       frequency,
       interval: frequency === 'custom' ? interval : undefined,
+      selectedDays: frequency === 'weekly' && selectedDays.length > 0 ? selectedDays : undefined,
     });
     
     // Reset and close
@@ -46,6 +54,7 @@ export default function HabitForm({ isOpen, onClose }: HabitFormProps) {
     setColor(COLORS[0]);
     setFrequency('daily');
     setIntervalValue(1);
+    setSelectedDays([]);
     onClose();
   };
 
@@ -93,6 +102,32 @@ export default function HabitForm({ isOpen, onClose }: HabitFormProps) {
               ))}
             </div>
           </div>
+
+          {frequency === 'weekly' && (
+            <div className="space-y-3 animate-in slide-in-from-top-2 duration-200">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold uppercase tracking-wider text-zinc-500">Repeat on</label>
+                <span className="text-[10px] text-zinc-600 font-medium">Optional: picks specific days</span>
+              </div>
+              <div className="flex justify-between gap-1">
+                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => toggleDay(i)}
+                    className={cn(
+                      "w-10 h-10 rounded-xl text-xs font-bold transition-all border",
+                      selectedDays.includes(i)
+                        ? "bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-600/20"
+                        : "bg-zinc-800/50 border-zinc-700 text-zinc-500 hover:border-zinc-600 hover:text-zinc-300"
+                    )}
+                  >
+                    {day}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {frequency === 'custom' && (
             <div className="space-y-2 animate-in slide-in-from-top-2 duration-200">

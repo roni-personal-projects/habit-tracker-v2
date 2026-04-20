@@ -14,6 +14,7 @@ function habitFromDb(row: any): Habit {
     color: row.color,
     frequency: row.frequency,
     interval: row.interval,
+    selectedDays: row.selected_days,
     createdAt: new Date(row.created_at),
   };
 }
@@ -25,6 +26,7 @@ function habitToDb(habit: Omit<Habit, 'id' | 'createdAt'>, userId: string, id: s
     color: habit.color,
     frequency: habit.frequency,
     interval: habit.interval ?? null,
+    selected_days: habit.selectedDays ?? null,
     user_id: userId,
     created_at: new Date().toISOString(),
   };
@@ -210,6 +212,7 @@ export const useHabitStore = create<HabitStore>()(
           color: updatedHabit.color,
           frequency: updatedHabit.frequency,
           interval: updatedHabit.interval ?? null,
+          selected_days: updatedHabit.selectedDays ?? null,
         }).eq('id', id);
       },
 

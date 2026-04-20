@@ -6,6 +6,7 @@ export interface Habit {
   color: string;
   frequency: Frequency;
   interval?: number; // for 'custom'
+  selectedDays?: number[]; // [0-6] for Weekly specific days
   createdAt: Date;
 }
 
