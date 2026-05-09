@@ -94,8 +94,8 @@ export default function HabitForm({ isOpen, onClose, habit }: HabitFormProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
-      <div className="w-full max-w-md glass-card rounded-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
-        <div className="p-6 border-b border-zinc-800 flex items-center justify-between">
+      <div className="w-full max-w-md glass-card rounded-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
+        <div className="p-5 border-b border-zinc-800 flex items-center justify-between shrink-0">
           <h2 className="text-xl font-bold text-zinc-100">
             {habit ? 'Edit Habit' : 'Create New Habit'}
           </h2>
@@ -104,7 +104,8 @@ export default function HabitForm({ isOpen, onClose, habit }: HabitFormProps) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-5">
+          <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-2">
             <label className="text-xs font-bold uppercase tracking-wider text-zinc-500">Habit Name</label>
             <input
@@ -337,6 +338,7 @@ export default function HabitForm({ isOpen, onClose, habit }: HabitFormProps) {
           </div>
         </form>
       </div>
+    </div>
 
       <CategoryManager 
         isOpen={isCategoryManagerOpen} 
