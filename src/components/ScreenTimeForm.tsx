@@ -21,15 +21,18 @@ const CATEGORIES = [
 export default function ScreenTimeForm({ isOpen, onClose }: ScreenTimeFormProps) {
   const { addScreenTimeLog } = useHabitStore();
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [duration, setDuration] = useState<number>(2); // Default to 2 hours
+  const [hours, setHours] = useState<number>(2);
+  const [minutes, setMinutes] = useState<number>(0);
   const [category, setCategory] = useState<string>('Productivity');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    const totalDuration = hours + (minutes / 60);
+
     addScreenTimeLog({
       date,
-      duration: Number(duration),
+      duration: totalDuration,
       category,
     });
     
@@ -70,20 +73,36 @@ export default function ScreenTimeForm({ isOpen, onClose }: ScreenTimeFormProps)
             />
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-bold text-zinc-400 uppercase tracking-wider ml-1 flex items-center gap-2">
-              <Clock size={14} /> Duration (Hours)
-            </label>
-            <input
-              type="number"
-              step="0.5"
-              min="0.5"
-              max="24"
-              value={duration}
-              onChange={(e) => setDuration(Number(e.target.value))}
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all font-medium"
-              required
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-zinc-400 uppercase tracking-wider ml-1 flex items-center gap-2">
+                <Clock size={14} /> Hours
+              </label>
+              <input
+                type="number"
+                min="0"
+                max="24"
+                value={hours}
+                onChange={(e) => setHours(Number(e.target.value))}
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all font-medium"
+                required
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-zinc-400 uppercase tracking-wider ml-1 flex items-center gap-2">
+                <Clock size={14} /> Minutes
+              </label>
+              <input
+                type="number"
+                min="0"
+                max="59"
+                value={minutes}
+                onChange={(e) => setMinutes(Number(e.target.value))}
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all font-medium"
+                required
+              />
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -116,8 +135,8 @@ export default function ScreenTimeForm({ isOpen, onClose }: ScreenTimeFormProps)
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-2xl font-black text-white">{duration}</span>
-                  <span className="text-zinc-500 text-sm font-bold">hours of</span>
+                  <span className="text-2xl font-black text-white">{hours}h {minutes > 0 && `${minutes}m`}</span>
+                  <span className="text-zinc-500 text-sm font-bold">of</span>
                 </div>
                 <div className={cn("text-sm font-bold mb-1", selectedCat.color)}>
                   {category}

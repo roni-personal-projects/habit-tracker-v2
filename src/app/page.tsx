@@ -8,6 +8,14 @@ import { Plus, Flame, Target, CheckCircle2, Moon, Laptop } from 'lucide-react';
 import { calculateStreak } from '@/lib/streak-logic';
 import { Habit } from '@/types';
 
+const formatDuration = (hoursDec: number) => {
+  const h = Math.floor(hoursDec);
+  const m = Math.round((hoursDec - h) * 60);
+  if (h > 0 && m > 0) return `${h}h ${m}m`;
+  if (h > 0) return `${h}h`;
+  return `${m}m`;
+};
+
 export default function Home() {
   const { habits, completions, sleepLogs, screenTimeLogs } = useHabitStore();
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -116,8 +124,8 @@ export default function Home() {
             <span className="text-sm font-bold text-zinc-400 uppercase tracking-wider">Screen Time</span>
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-4xl font-black text-zinc-100">{todayScreenTime}</span>
-            <span className="text-zinc-500 font-medium">hrs today</span>
+            <span className="text-4xl font-black text-zinc-100">{formatDuration(todayScreenTime)}</span>
+            <span className="text-zinc-500 font-medium">today</span>
           </div>
         </div>
       </div>

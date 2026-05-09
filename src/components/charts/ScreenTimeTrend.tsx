@@ -19,6 +19,14 @@ import { format, subDays, eachDayOfInterval } from 'date-fns';
 export default function ScreenTimeTrend() {
   const { screenTimeLogs } = useHabitStore();
 
+  const formatDuration = (hoursDec: number) => {
+    const h = Math.floor(hoursDec);
+    const m = Math.round((hoursDec - h) * 60);
+    if (h > 0 && m > 0) return `${h}h ${m}m`;
+    if (h > 0) return `${h}h`;
+    return `${m}m`;
+  };
+
   const data = useMemo(() => {
     const end = new Date();
     const start = subDays(end, 13); // Last 14 days
@@ -68,6 +76,7 @@ export default function ScreenTimeTrend() {
             tickFormatter={(val) => `${val}h`}
           />
           <Tooltip 
+            formatter={(value: number) => [formatDuration(value), '']}
             cursor={{ fill: '#27272a', opacity: 0.4 }}
             contentStyle={{ 
               backgroundColor: '#18181b', 

@@ -14,6 +14,14 @@ const CATEGORIES = {
   'Other': { color: 'text-zinc-500', bg: 'bg-zinc-500/10' },
 } as Record<string, { color: string, bg: string }>;
 
+const formatDuration = (hoursDec: number) => {
+  const h = Math.floor(hoursDec);
+  const m = Math.round((hoursDec - h) * 60);
+  if (h > 0 && m > 0) return `${h}h ${m}m`;
+  if (h > 0) return `${h}h`;
+  return `${m}m`;
+};
+
 export default function ScreenTimePage() {
   const { screenTimeLogs, deleteScreenTimeLog } = useHabitStore();
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -54,8 +62,7 @@ export default function ScreenTimePage() {
             <span className="text-sm font-bold text-zinc-400 uppercase tracking-wider">Today's Usage</span>
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-4xl font-black text-zinc-100">{totalToday}</span>
-            <span className="text-zinc-500 font-medium">hours</span>
+            <span className="text-4xl font-black text-zinc-100">{formatDuration(totalToday)}</span>
           </div>
           <div className="mt-4 pt-4 border-t border-zinc-800/50 space-y-2">
             {todayLogs.map(log => {
@@ -63,7 +70,7 @@ export default function ScreenTimePage() {
               return (
                 <div key={log.id} className="flex justify-between items-center text-sm font-medium">
                   <span className={`${catStyle.color}`}>{log.category}</span>
-                  <span className="text-zinc-300">{log.duration} h</span>
+                  <span className="text-zinc-300">{formatDuration(log.duration)}</span>
                 </div>
               );
             })}
@@ -106,8 +113,7 @@ export default function ScreenTimePage() {
                     </div>
                     <div className="flex items-center gap-6">
                       <div className="text-right">
-                        <span className="text-lg font-black text-zinc-100">{log.duration}</span>
-                        <span className="text-zinc-500 text-xs ml-1 font-bold">hrs</span>
+                        <span className="text-lg font-black text-zinc-100">{formatDuration(log.duration)}</span>
                       </div>
                       <button 
                         onClick={() => deleteScreenTimeLog(log.id)}
