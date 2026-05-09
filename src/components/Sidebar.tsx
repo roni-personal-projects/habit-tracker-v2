@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Table as TableIcon, Settings, BarChart3, PlusCircle, LogIn, Moon } from 'lucide-react';
+import { LayoutDashboard, Table as TableIcon, Settings, BarChart3, PlusCircle, LogIn, Moon, Laptop } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { UserButton, Show, SignInButton } from '@clerk/nextjs';
 
@@ -11,6 +11,7 @@ const navItems = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Habits Table', href: '/table', icon: TableIcon },
   { name: 'Sleep Tracker', href: '/sleep', icon: Moon },
+  { name: 'Screen Time', href: '/screentime', icon: Laptop },
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
 ];
 

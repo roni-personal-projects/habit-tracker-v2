@@ -38,11 +38,19 @@ export interface SleepLog {
   category: string;
 }
 
+export interface ScreenTimeLog {
+  id: string;
+  date: string; // YYYY-MM-DD
+  duration: number; // in hours
+  category: string; // 'Social', 'Productivity', 'Entertainment', 'Gaming', 'Other'
+}
+
 export interface HabitStore {
   habits: Habit[];
   categories: Category[];
   completions: Completion[];
   sleepLogs: SleepLog[];
+  screenTimeLogs: ScreenTimeLog[];
   isLoading: boolean;
   isInitialized: boolean;
   userId: string | null;
@@ -61,5 +69,8 @@ export interface HabitStore {
   toggleCompletion: (habitId: string, date: string) => Promise<void>;
   addSleepLog: (log: Omit<SleepLog, 'id'>) => Promise<void>;
   deleteSleepLog: (id: string) => Promise<void>;
+  
+  addScreenTimeLog: (log: Omit<ScreenTimeLog, 'id'>) => Promise<void>;
+  deleteScreenTimeLog: (id: string) => Promise<void>;
 }
 

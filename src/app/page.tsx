@@ -4,12 +4,12 @@ import React, { useState } from 'react';
 import { useHabitStore } from '@/store/useHabitStore';
 import HabitTable from '@/components/HabitTable';
 import HabitForm from '@/components/HabitForm';
-import { Plus, Flame, Target, CheckCircle2, Moon } from 'lucide-react';
+import { Plus, Flame, Target, CheckCircle2, Moon, Laptop } from 'lucide-react';
 import { calculateStreak } from '@/lib/streak-logic';
 import { Habit } from '@/types';
 
 export default function Home() {
-  const { habits, completions, sleepLogs } = useHabitStore();
+  const { habits, completions, sleepLogs, screenTimeLogs } = useHabitStore();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
 
@@ -33,6 +33,11 @@ export default function Home() {
   const todayCount = completions.filter(c => c.date === new Date().toISOString().split('T')[0]).length;
 
   const lastSleep = [...sleepLogs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+  
+  const todayStr = new Date().toISOString().split('T')[0];
+  const todayScreenTime = screenTimeLogs
+    .filter(log => log.date === todayStr)
+    .reduce((acc, log) => acc + log.duration, 0);
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -50,7 +55,7 @@ export default function Home() {
         </button>
       </header>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
         <div className="glass-card p-6 rounded-2xl border border-zinc-800/50">
           <div className="flex items-center gap-4 mb-4">
             <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-500">
@@ -100,6 +105,19 @@ export default function Home() {
           <div className="flex items-baseline gap-2">
             <span className="text-4xl font-black text-zinc-100">{lastSleep?.duration || 0}</span>
             <span className="text-zinc-500 font-medium">hours</span>
+          </div>
+        </div>
+
+        <div className="glass-card p-6 rounded-2xl border border-zinc-800/50">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center text-violet-500">
+              <Laptop size={24} />
+            </div>
+            <span className="text-sm font-bold text-zinc-400 uppercase tracking-wider">Screen Time</span>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-4xl font-black text-zinc-100">{todayScreenTime}</span>
+            <span className="text-zinc-500 font-medium">hrs today</span>
           </div>
         </div>
       </div>

@@ -6,6 +6,7 @@ import CompletionTrend from '@/components/charts/CompletionTrend';
 import FrequencyChart from '@/components/charts/FrequencyChart';
 import GlobalPieChart from '@/components/charts/GlobalPieChart';
 import MonthlyHabitPie from '@/components/charts/MonthlyHabitPie';
+import ScreenTimeTrend from '@/components/charts/ScreenTimeTrend';
 import { calculateStreak, getCompletionStats } from '@/lib/streak-logic';
 import { Flame, Target, TrendingUp, Calendar, PieChart as PieChartIcon, Activity, Book, Brain, Briefcase, Camera, Code, Coffee, Coins, Dumbbell, Gamepad, GraduationCap, Heart, Home, Image, Laptop, Languages, Lightbulb, Music, Palette, Pill, Plane, Play, Rocket, ShoppingCart, Smile, Star, Target as TargetIcon, Tv, Utensils, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -107,6 +108,14 @@ export default function AnalyticsPage() {
           <GlobalPieChart />
         </section>
       </div>
+      
+      <section className="glass-card p-6 rounded-2xl border border-zinc-800/50">
+        <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
+          <Laptop size={20} className="text-indigo-500" />
+          Screen Time Distribution
+        </h2>
+        <ScreenTimeTrend />
+      </section>
 
       {/* Category Mastery Section */}
       {categoryStats.length > 0 && (

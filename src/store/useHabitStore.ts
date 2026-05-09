@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Habit, Category, Completion, HabitStore, SleepLog } from '@/types';
+import { Habit, Category, Completion, HabitStore, SleepLog, ScreenTimeLog } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/lib/supabase';
 
@@ -106,6 +106,26 @@ function sleepLogToDb(log: Omit<SleepLog, 'id'>, userId: string, id: string) {
   };
 }
 
+// Screen Time Logs
+function screenTimeLogFromDb(row: any): ScreenTimeLog {
+  return {
+    id: row.id,
+    date: row.date,
+    duration: row.duration,
+    category: row.category,
+  };
+}
+
+function screenTimeLogToDb(log: Omit<ScreenTimeLog, 'id'>, userId: string, id: string) {
+  return {
+    id,
+    date: log.date,
+    duration: log.duration,
+    category: log.category,
+    user_id: userId,
+  };
+}
+
 // ─── Store ─────────────────────────────────────────────────────────────────
 
 export const useHabitStore = create<HabitStore>()(
@@ -115,6 +135,7 @@ export const useHabitStore = create<HabitStore>()(
       categories: [],
       completions: [],
       sleepLogs: [],
+      screenTimeLogs: [],
       isLoading: false,
       isInitialized: false,
       userId: null,
@@ -131,12 +152,14 @@ export const useHabitStore = create<HabitStore>()(
           { data: habitsData, error: habitsError },
           { data: categoriesData },
           { data: completionsData },
-          { data: sleepLogsData }
+          { data: sleepLogsData },
+          { data: screenTimeLogsData }
         ] = await Promise.all([
           supabase.from('habits').select('*').eq('user_id', userId).order('order', { ascending: true }),
           supabase.from('categories').select('*').eq('user_id', userId).order('order', { ascending: true }),
           supabase.from('completions').select('*').eq('user_id', userId),
-          supabase.from('sleep_logs').select('*').eq('user_id', userId)
+          supabase.from('sleep_logs').select('*').eq('user_id', userId),
+          supabase.from('screen_time_logs').select('*').eq('user_id', userId)
         ]);
 
         if (habitsError) {
@@ -150,6 +173,7 @@ export const useHabitStore = create<HabitStore>()(
         const localCategories = get().categories;
         const localCompletions = get().completions;
         const localSleepLogs = get().sleepLogs;
+        const localScreenTimeLogs = get().screenTimeLogs || [];
 
         const isSupabaseEmpty = (!habitsData || habitsData.length === 0) && (!categoriesData || categoriesData.length === 0);
         const hasLocalData = localHabits.length > 0 || localCategories.length > 0;
@@ -182,11 +206,18 @@ export const useHabitStore = create<HabitStore>()(
             );
           }
 
+          if (localScreenTimeLogs.length > 0) {
+            await supabase.from('screen_time_logs').insert(
+              localScreenTimeLogs.map(s => screenTimeLogToDb(s, userId, s.id))
+            );
+          }
+
           // Refetch after migration
-          const [{ data: nh }, { data: nc }, { data: ns }, { data: ncat }] = await Promise.all([
+          const [{ data: nh }, { data: nc }, { data: ns }, { data: nst }, { data: ncat }] = await Promise.all([
             supabase.from('habits').select('*').eq('user_id', userId).order('order', { ascending: true }),
             supabase.from('completions').select('*').eq('user_id', userId),
             supabase.from('sleep_logs').select('*').eq('user_id', userId),
+            supabase.from('screen_time_logs').select('*').eq('user_id', userId),
             supabase.from('categories').select('*').eq('user_id', userId).order('order', { ascending: true }),
           ]);
 
@@ -195,6 +226,7 @@ export const useHabitStore = create<HabitStore>()(
             categories: (ncat || []).map(categoryFromDb),
             completions: (nc || []).map(completionFromDb),
             sleepLogs: (ns || []).map(sleepLogFromDb),
+            screenTimeLogs: (nst || []).map(screenTimeLogFromDb),
             isInitialized: true,
             isLoading: false,
           });
@@ -204,6 +236,7 @@ export const useHabitStore = create<HabitStore>()(
             categories: (categoriesData || []).map(categoryFromDb),
             completions: (completionsData || []).map(completionFromDb),
             sleepLogs: (sleepLogsData || []).map(sleepLogFromDb),
+            screenTimeLogs: (screenTimeLogsData || []).map(screenTimeLogFromDb),
             isInitialized: true,
             isLoading: false,
           });
@@ -243,6 +276,15 @@ export const useHabitStore = create<HabitStore>()(
             async () => {
               const { data } = await supabase.from('sleep_logs').select('*').eq('user_id', userId);
               set({ sleepLogs: (data || []).map(sleepLogFromDb) });
+            })
+          .subscribe();
+
+        supabase
+          .channel('screen-time-logs-changes')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'screen_time_logs', filter: `user_id=eq.${userId}` },
+            async () => {
+              const { data } = await supabase.from('screen_time_logs').select('*').eq('user_id', userId);
+              set({ screenTimeLogs: (data || []).map(screenTimeLogFromDb) });
             })
           .subscribe();
       },
@@ -473,6 +515,32 @@ export const useHabitStore = create<HabitStore>()(
 
         await supabase.from('sleep_logs').delete().eq('id', id);
       },
+
+      addScreenTimeLog: async (log) => {
+        const { userId, screenTimeLogs } = get();
+        if (!userId) return;
+
+        const id = uuidv4();
+        const newLog: ScreenTimeLog = { ...log, id };
+        
+        set((state) => ({ screenTimeLogs: [...state.screenTimeLogs, newLog] }));
+        
+        const { error } = await supabase.from('screen_time_logs').insert([screenTimeLogToDb(log, userId, id)]);
+        if (error) {
+          console.error('Error adding screen time log:', error.message);
+        }
+      },
+
+      deleteScreenTimeLog: async (id) => {
+        const { userId } = get();
+        if (!userId) return;
+
+        set((state) => ({
+          screenTimeLogs: state.screenTimeLogs.filter((l) => l.id !== id),
+        }));
+
+        await supabase.from('screen_time_logs').delete().eq('id', id);
+      },
     }),
     {
       name: 'habit-tracker-storage',
@@ -482,6 +550,7 @@ export const useHabitStore = create<HabitStore>()(
         categories: state.categories,
         completions: state.completions,
         sleepLogs: state.sleepLogs,
+        screenTimeLogs: state.screenTimeLogs,
       }),
     }
   )
