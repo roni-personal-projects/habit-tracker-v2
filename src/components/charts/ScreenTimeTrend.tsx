@@ -76,7 +76,7 @@ export default function ScreenTimeTrend() {
             tickFormatter={(val) => `${val}h`}
           />
           <Tooltip 
-            formatter={(value: number) => [formatDuration(value), '']}
+            formatter={(value: any) => [formatDuration(Number(value) || 0), '']}
             cursor={{ fill: '#27272a', opacity: 0.4 }}
             contentStyle={{ 
               backgroundColor: '#18181b', 
