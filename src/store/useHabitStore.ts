@@ -111,7 +111,7 @@ function screenTimeLogFromDb(row: any): ScreenTimeLog {
   return {
     id: row.id,
     date: row.date,
-    duration: row.duration,
+    duration: Number(row.duration),
     category: row.category,
   };
 }

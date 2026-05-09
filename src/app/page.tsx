@@ -9,6 +9,7 @@ import { calculateStreak } from '@/lib/streak-logic';
 import { Habit } from '@/types';
 
 const formatDuration = (hoursDec: number) => {
+  if (!hoursDec || isNaN(hoursDec)) return '0m';
   const h = Math.floor(hoursDec);
   const m = Math.round((hoursDec - h) * 60);
   if (h > 0 && m > 0) return `${h}h ${m}m`;
@@ -43,7 +44,7 @@ export default function Home() {
   const lastSleep = [...sleepLogs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
   
   const todayStr = new Date().toISOString().split('T')[0];
-  const todayScreenTime = screenTimeLogs
+  const todayScreenTime = (screenTimeLogs || [])
     .filter(log => log.date === todayStr)
     .reduce((acc, log) => acc + log.duration, 0);
 
