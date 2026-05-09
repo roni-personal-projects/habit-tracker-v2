@@ -40,13 +40,33 @@ export default function AnalyticsPage() {
     ? Math.round(habits.reduce((acc, h) => acc + getCompletionStats(h, completions).rate, 0) / habits.length)
     : 0;
 
-  // Category stats
-  const categoryStats = categories.map(cat => {
-    const catHabits = habits.filter(h => h.categoryId === cat.id);
-    if (catHabits.length === 0) return null;
-    const avgRate = Math.round(catHabits.reduce((acc, h) => acc + getCompletionStats(h, completions).rate, 0) / catHabits.length);
-    return { ...cat, avgRate };
-  }).filter(Boolean);
+  // Category stats with hierarchy support
+  const categoryStats = useMemo(() => {
+    const parents = categories.filter(c => !c.parentId);
+    
+    return parents.map(parent => {
+      const children = categories.filter(c => c.parentId === parent.id);
+      const parentHabits = habits.filter(h => h.categoryId === parent.id);
+      const childHabits = habits.filter(h => children.some(c => c.id === h.categoryId));
+      
+      const allRelatedHabits = [...parentHabits, ...childHabits];
+      if (allRelatedHabits.length === 0) return null;
+      
+      const avgRate = Math.round(allRelatedHabits.reduce((acc, h) => acc + getCompletionStats(h, completions).rate, 0) / allRelatedHabits.length);
+      
+      return { 
+        ...parent, 
+        avgRate,
+        children: children.map(child => {
+          const habitsForChild = habits.filter(h => h.categoryId === child.id);
+          if (habitsForChild.length === 0) return null;
+          const childRate = Math.round(habitsForChild.reduce((acc, h) => acc + getCompletionStats(h, completions).rate, 0) / habitsForChild.length);
+          return { ...child, avgRate: childRate };
+        }).filter(Boolean)
+      };
+    }).filter(Boolean);
+  }, [habits, categories, completions]);
+
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
@@ -99,7 +119,7 @@ export default function AnalyticsPage() {
             {categoryStats.map((cat: any) => {
               const IconComp = (ICONS as any)[cat.icon] || Activity;
               return (
-                <div key={cat.id} className="glass-card p-6 rounded-2xl border border-zinc-800/50 relative overflow-hidden group">
+                <div key={cat.id} className="glass-card p-6 rounded-2xl border border-zinc-800/50 relative overflow-hidden group flex flex-col">
                   <div 
                     className="absolute inset-0 opacity-[0.03] group-hover:opacity-[0.07] transition-opacity pointer-events-none" 
                     style={{ backgroundColor: cat.color }}
@@ -120,9 +140,30 @@ export default function AnalyticsPage() {
                       style={{ width: `${cat.avgRate}%`, backgroundColor: cat.color }}
                     />
                   </div>
+                  
+                  {/* Children Stats */}
+                  {cat.children && cat.children.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-zinc-800/50 space-y-3">
+                      {cat.children.map((child: any) => (
+                        <div key={child.id} className="space-y-1">
+                          <div className="flex justify-between text-[10px] font-bold uppercase tracking-tight text-zinc-500">
+                            <span>{child.name}</span>
+                            <span className="text-zinc-300">{child.avgRate}%</span>
+                          </div>
+                          <div className="h-0.5 w-full bg-zinc-800/50 rounded-full">
+                            <div 
+                              className="h-full rounded-full"
+                              style={{ width: `${child.avgRate}%`, backgroundColor: child.color }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}
+
           </div>
         </section>
       )}

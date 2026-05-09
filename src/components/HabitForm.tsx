@@ -178,6 +178,7 @@ export default function HabitForm({ isOpen, onClose, habit }: HabitFormProps) {
               </button>
             </div>
             <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
+              {/* None option */}
               <button
                 type="button"
                 onClick={() => setCategoryId(undefined)}
@@ -191,24 +192,65 @@ export default function HabitForm({ isOpen, onClose, habit }: HabitFormProps) {
                 <div className="w-2 h-2 rounded-full bg-zinc-600" />
                 None
               </button>
-              {categories.map((cat) => (
+
+              {/* Hierarchical Categories */}
+              {categories.filter(c => !c.parentId).map((parent) => (
+                <React.Fragment key={parent.id}>
+                  {/* Parent Button */}
+                  <button
+                    type="button"
+                    onClick={() => setCategoryId(parent.id)}
+                    className={cn(
+                      "px-3 py-2 rounded-xl text-xs font-bold transition-all border text-left flex items-center gap-2",
+                      categoryId === parent.id 
+                        ? "bg-zinc-100 text-zinc-900 border-white shadow-lg" 
+                        : "bg-zinc-800/50 border-zinc-700 text-zinc-400 hover:border-zinc-600"
+                    )}
+                  >
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: parent.color }} />
+                    {parent.name}
+                  </button>
+
+                  {/* Child Buttons (Indented) */}
+                  {categories.filter(c => c.parentId === parent.id).map((child) => (
+                    <button
+                      key={child.id}
+                      type="button"
+                      onClick={() => setCategoryId(child.id)}
+                      className={cn(
+                        "px-3 py-2 rounded-xl text-xs font-bold transition-all border text-left flex items-center gap-2 ml-4",
+                        categoryId === child.id 
+                          ? "bg-zinc-100 text-zinc-900 border-white shadow-lg" 
+                          : "bg-zinc-800/50 border-zinc-700 text-zinc-400 hover:border-zinc-600"
+                      )}
+                    >
+                      <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: child.color }} />
+                      <span className="opacity-70 text-[10px]">{child.name}</span>
+                    </button>
+                  ))}
+                </React.Fragment>
+              ))}
+
+              {/* Orphans (if any) */}
+              {categories.filter(c => c.parentId && !categories.some(p => p.id === c.parentId)).map((orphan) => (
                 <button
-                  key={cat.id}
+                  key={orphan.id}
                   type="button"
-                  onClick={() => setCategoryId(cat.id)}
+                  onClick={() => setCategoryId(orphan.id)}
                   className={cn(
                     "px-3 py-2 rounded-xl text-xs font-bold transition-all border text-left flex items-center gap-2",
-                    categoryId === cat.id 
+                    categoryId === orphan.id 
                       ? "bg-zinc-100 text-zinc-900 border-white shadow-lg" 
                       : "bg-zinc-800/50 border-zinc-700 text-zinc-400 hover:border-zinc-600"
                   )}
                 >
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.color }} />
-                  {cat.name}
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: orphan.color }} />
+                  {orphan.name} (Orphan)
                 </button>
               ))}
             </div>
           </div>
+
           
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">

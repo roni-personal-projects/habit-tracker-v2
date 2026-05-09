@@ -39,9 +39,10 @@ interface SortableHabitRowProps {
   toggleCompletion: (id: string, date: string) => void;
   deleteHabit: (id: string) => void;
   onEdit: (habit: Habit) => void;
+  isSubCategory?: boolean;
 }
 
-function SortableHabitRow({ habit, dates, completions, toggleCompletion, deleteHabit, onEdit }: SortableHabitRowProps) {
+function SortableHabitRow({ habit, dates, completions, toggleCompletion, deleteHabit, onEdit, isSubCategory }: SortableHabitRowProps) {
   const {
     attributes,
     listeners,
@@ -70,7 +71,10 @@ function SortableHabitRow({ habit, dates, completions, toggleCompletion, deleteH
         isDragging && "bg-zinc-800/50"
       )}
     >
-      <td className="sticky left-0 z-10 bg-zinc-900 p-4 border-r border-zinc-800 transition-colors group-hover:bg-zinc-800/50">
+      <td className={cn(
+        "sticky left-0 z-10 bg-zinc-900 p-4 border-r border-zinc-800 transition-colors group-hover:bg-zinc-800/50",
+        isSubCategory && "pl-10"
+      )}>
         <div className="flex items-center gap-3">
           <button 
             {...attributes} 
@@ -407,6 +411,7 @@ export default function HabitTable({ onEditHabit }: HabitTableProps) {
                                   toggleCompletion={toggleCompletion}
                                   deleteHabit={deleteHabit}
                                   onEdit={onEditHabit}
+                                  isSubCategory
                                 />
                               ))}
                             </React.Fragment>
