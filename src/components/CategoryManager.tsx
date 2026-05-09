@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useHabitStore } from '@/store/useHabitStore';
 import { Category } from '@/types';
 import { 
-  X, Check, Plus, Trash2, Edit2, 
+  X, Check, Plus, Trash2, Edit2, GripVertical,
   Activity, Book, Brain, Briefcase, Camera, 
   Code, Coffee, Coins, Dumbbell, Gamepad, 
   GraduationCap, Heart, Home, Image, Laptop, 
@@ -13,6 +13,22 @@ import {
   Star, Target, Tv, Utensils, Zap 
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
 
 const ICONS = {
   Activity, Book, Brain, Briefcase, Camera, 
@@ -33,19 +49,100 @@ const COLORS = [
   '#06b6d4', // cyan
 ];
 
+interface SortableCategoryItemProps {
+  cat: Category;
+  startEdit: (cat: Category) => void;
+  deleteCategory: (id: string) => void;
+}
+
+function SortableCategoryItem({ cat, startEdit, deleteCategory }: SortableCategoryItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id: cat.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : 0,
+    position: 'relative' as const,
+  };
+
+  const IconComp = (ICONS as any)[cat.icon] || Activity;
+
+  return (
+    <div 
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "flex items-center justify-between p-3 rounded-xl bg-zinc-800/30 border border-zinc-800/50 hover:border-zinc-700 transition-all group",
+        isDragging && "bg-zinc-800/80 border-zinc-600 shadow-xl"
+      )}
+    >
+      <div className="flex items-center gap-3">
+        <button 
+          {...attributes} 
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing text-zinc-600 hover:text-zinc-400 p-1"
+        >
+          <GripVertical size={14} />
+        </button>
+        <div 
+          className="w-8 h-8 rounded-lg flex items-center justify-center"
+          style={{ backgroundColor: `${cat.color}20`, color: cat.color }}
+        >
+          <IconComp size={18} />
+        </div>
+        <span className="text-sm font-medium text-zinc-200">{cat.name}</span>
+      </div>
+      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button 
+          onClick={() => startEdit(cat)}
+          className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-100 hover:bg-zinc-700 transition-all"
+        >
+          <Edit2 size={14} />
+        </button>
+        <button 
+          onClick={() => {
+            if (window.confirm("Delete this category? Habits in this category will become ungrouped.")) {
+              deleteCategory(cat.id);
+            }
+          }}
+          className="p-1.5 rounded-lg text-zinc-500 hover:text-red-500 hover:bg-red-500/10 transition-all"
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 interface CategoryManagerProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
 export default function CategoryManager({ isOpen, onClose }: CategoryManagerProps) {
-  const { categories, addCategory, updateCategory, deleteCategory } = useHabitStore();
+  const { categories, addCategory, updateCategory, deleteCategory, reorderCategories } = useHabitStore();
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   
   const [name, setName] = useState('');
   const [icon, setIcon] = useState('Activity');
   const [color, setColor] = useState(COLORS[0]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
 
   if (!isOpen) return null;
 
@@ -75,6 +172,22 @@ export default function CategoryManager({ isOpen, onClose }: CategoryManagerProp
     setColor(cat.color);
     setEditingId(cat.id);
     setIsAdding(true);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = categories.findIndex((c) => c.id === active.id);
+      const newIndex = categories.findIndex((c) => c.id === over.id);
+
+      const reordered = arrayMove(categories, oldIndex, newIndex).map((cat, index) => ({
+        ...cat,
+        order: index,
+      }));
+
+      reorderCategories(reordered);
+    }
   };
 
   return (
@@ -108,44 +221,29 @@ export default function CategoryManager({ isOpen, onClose }: CategoryManagerProp
               </div>
             )}
 
-            {categories.map((cat) => {
-              const IconComp = (ICONS as any)[cat.icon] || Activity;
-              return (
-                <div 
-                  key={cat.id}
-                  className="flex items-center justify-between p-3 rounded-xl bg-zinc-800/30 border border-zinc-800/50 hover:border-zinc-700 transition-all group"
-                >
-                  <div className="flex items-center gap-3">
-                    <div 
-                      className="w-8 h-8 rounded-lg flex items-center justify-center"
-                      style={{ backgroundColor: `${cat.color}20`, color: cat.color }}
-                    >
-                      <IconComp size={18} />
-                    </div>
-                    <span className="text-sm font-medium text-zinc-200">{cat.name}</span>
-                  </div>
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button 
-                      onClick={() => startEdit(cat)}
-                      className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-100 hover:bg-zinc-700 transition-all"
-                    >
-                      <Edit2 size={14} />
-                    </button>
-                    <button 
-                      onClick={() => {
-                        if (window.confirm("Delete this category? Habits in this category will become ungrouped.")) {
-                          deleteCategory(cat.id);
-                        }
-                      }}
-                      className="p-1.5 rounded-lg text-zinc-500 hover:text-red-500 hover:bg-red-500/10 transition-all"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
+            <DndContext 
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext 
+                items={categories.map(c => c.id)} 
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-2">
+                  {categories.map((cat) => (
+                    <SortableCategoryItem 
+                      key={cat.id}
+                      cat={cat}
+                      startEdit={startEdit}
+                      deleteCategory={deleteCategory}
+                    />
+                  ))}
                 </div>
-              );
-            })}
+              </SortableContext>
+            </DndContext>
           </div>
+
 
           {/* Right Side: Form */}
           <div className="w-full md:w-1/2 p-6 bg-zinc-900/30 overflow-y-auto">

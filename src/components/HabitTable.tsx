@@ -137,16 +137,18 @@ function SortableHabitRow({ habit, dates, completions, toggleCompletion, deleteH
           ? habit.selectedDays.includes(date.getDay())
           : true;
         const future = isFuture(date) && !isTodayFn(date);
+        const isActive = (!habit.startDate || dateStr >= habit.startDate) && 
+                         (!habit.endDate || dateStr <= habit.endDate);
 
         return (
           <td 
             key={dateStr}
             className={cn(
               "p-0 border-r border-zinc-900 last:border-r-0 transition-opacity",
-              future ? "opacity-20 cursor-not-allowed" : "cursor-pointer",
+              (future || !isActive) ? "opacity-20 cursor-not-allowed" : "cursor-pointer",
               !isDue && !isCompleted && "opacity-30"
             )}
-            onClick={() => !future && toggleCompletion(habit.id, dateStr)}
+            onClick={() => !future && isActive && toggleCompletion(habit.id, dateStr)}
           >
             <div className={cn(
               "w-full h-14 flex items-center justify-center transition-all duration-300",
@@ -155,6 +157,7 @@ function SortableHabitRow({ habit, dates, completions, toggleCompletion, deleteH
               <div 
                 className={cn(
                   "w-6 h-6 rounded-md border flex items-center justify-center transition-all duration-200",
+                  !isActive && "opacity-0 scale-50",
                   isCompleted 
                     ? "shadow-lg" 
                     : "border-zinc-700 bg-zinc-800/50 hover:border-zinc-600"

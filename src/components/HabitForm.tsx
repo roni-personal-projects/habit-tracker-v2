@@ -31,6 +31,8 @@ export default function HabitForm({ isOpen, onClose, habit }: HabitFormProps) {
   const [interval, setIntervalValue] = useState(habit?.interval || 1);
   const [selectedDays, setSelectedDays] = useState<number[]>(habit?.selectedDays || []);
   const [categoryId, setCategoryId] = useState<string | undefined>(habit?.categoryId);
+  const [startDate, setStartDate] = useState(habit?.startDate || '');
+  const [endDate, setEndDate] = useState(habit?.endDate || '');
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
 
   // Sync state with habit if editing
@@ -42,6 +44,8 @@ export default function HabitForm({ isOpen, onClose, habit }: HabitFormProps) {
       setIntervalValue(habit.interval || 1);
       setSelectedDays(habit.selectedDays || []);
       setCategoryId(habit.categoryId);
+      setStartDate(habit.startDate || '');
+      setEndDate(habit.endDate || '');
     } else {
       setName('');
       setColor(COLORS[0]);
@@ -49,6 +53,8 @@ export default function HabitForm({ isOpen, onClose, habit }: HabitFormProps) {
       setIntervalValue(1);
       setSelectedDays([]);
       setCategoryId(undefined);
+      setStartDate('');
+      setEndDate('');
     }
   }, [habit, isOpen]);
 
@@ -71,6 +77,8 @@ export default function HabitForm({ isOpen, onClose, habit }: HabitFormProps) {
       interval: frequency === 'custom' ? interval : undefined,
       selectedDays: frequency === 'weekly' && selectedDays.length > 0 ? selectedDays : undefined,
       categoryId,
+      startDate: startDate || undefined,
+      endDate: endDate || undefined,
     };
 
     if (habit) {
@@ -80,13 +88,9 @@ export default function HabitForm({ isOpen, onClose, habit }: HabitFormProps) {
     }
     
     // Reset and close
-    setName('');
-    setColor(COLORS[0]);
-    setFrequency('daily');
-    setIntervalValue(1);
-    setSelectedDays([]);
     onClose();
   };
+
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
@@ -205,6 +209,28 @@ export default function HabitForm({ isOpen, onClose, habit }: HabitFormProps) {
               ))}
             </div>
           </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase tracking-wider text-zinc-500">Active From</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full bg-zinc-800/50 border border-zinc-700 rounded-xl px-4 py-2.5 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-600 text-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase tracking-wider text-zinc-500">Active Until</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full bg-zinc-800/50 border border-zinc-700 rounded-xl px-4 py-2.5 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-600 text-sm"
+              />
+            </div>
+          </div>
+
           {frequency === 'custom' && (
             <div className="space-y-2 animate-in slide-in-from-top-2 duration-200">
               <label className="text-xs font-bold uppercase tracking-wider text-zinc-500">Every N Days</label>

@@ -18,6 +18,8 @@ function habitFromDb(row: any): Habit {
     categoryId: row.category_id,
     order: row.order || 0,
     createdAt: new Date(row.created_at),
+    startDate: row.start_date,
+    endDate: row.end_date,
   };
 }
 
@@ -55,6 +57,8 @@ function habitToDb(habit: Omit<Habit, 'id' | 'createdAt'>, userId: string, id: s
     order: habit.order ?? 0,
     user_id: userId,
     created_at: new Date().toISOString(),
+    start_date: habit.startDate ?? null,
+    end_date: habit.endDate ?? null,
   };
 }
 
@@ -276,6 +280,8 @@ export const useHabitStore = create<HabitStore>()(
         if (updatedHabit.selectedDays !== undefined) dbUpdate.selected_days = updatedHabit.selectedDays;
         if (updatedHabit.categoryId !== undefined) dbUpdate.category_id = updatedHabit.categoryId;
         if (updatedHabit.order !== undefined) dbUpdate.order = updatedHabit.order;
+        if (updatedHabit.startDate !== undefined) dbUpdate.start_date = updatedHabit.startDate;
+        if (updatedHabit.endDate !== undefined) dbUpdate.end_date = updatedHabit.endDate;
 
         await supabase.from('habits').update(dbUpdate).eq('id', id);
       },
@@ -309,7 +315,9 @@ export const useHabitStore = create<HabitStore>()(
           interval: h.interval ?? null,
           selected_days: h.selectedDays ?? null,
           order: h.order,
-          created_at: h.createdAt.toISOString()
+          created_at: h.createdAt.toISOString(),
+          start_date: h.startDate ?? null,
+          end_date: h.endDate ?? null
         }));
 
         const { error } = await supabase.from('habits').upsert(dbHabits);
@@ -369,6 +377,29 @@ export const useHabitStore = create<HabitStore>()(
         // In Supabase, if we have a foreign key, we might need to set it to null first or cascade
         await supabase.from('habits').update({ category_id: null }).eq('category_id', id);
         await supabase.from('categories').delete().eq('id', id);
+      },
+
+      reorderCategories: async (newCategories) => {
+        const { userId } = get();
+        if (!userId) return;
+
+        // Optimistic update
+        set({ categories: newCategories });
+
+        // Update database (batch upsert)
+        const dbCategories = newCategories.map(c => ({
+          id: c.id,
+          user_id: userId,
+          name: c.name,
+          icon: c.icon,
+          color: c.color,
+          order: c.order
+        }));
+
+        const { error } = await supabase.from('categories').upsert(dbCategories);
+        if (error) {
+          console.error('Error reordering categories:', error.message);
+        }
       },
 
       toggleCompletion: async (habitId, date) => {

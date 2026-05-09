@@ -18,6 +18,8 @@ export interface Habit {
   categoryId?: string;
   order: number;
   createdAt: Date;
+  startDate?: string; // YYYY-MM-DD
+  endDate?: string;   // YYYY-MM-DD
 }
 
 export interface Completion {
@@ -53,8 +55,10 @@ export interface HabitStore {
   addCategory: (category: Omit<Category, 'id' | 'order'>) => Promise<void>;
   updateCategory: (id: string, category: Partial<Category>) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
+  reorderCategories: (categories: Category[]) => Promise<void>;
   
   toggleCompletion: (habitId: string, date: string) => Promise<void>;
   addSleepLog: (log: Omit<SleepLog, 'id'>) => Promise<void>;
   deleteSleepLog: (id: string) => Promise<void>;
 }
+
