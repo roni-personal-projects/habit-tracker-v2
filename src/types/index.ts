@@ -6,6 +6,7 @@ export interface Category {
   icon: string;
   color: string;
   order: number;
+  parentId?: string;
 }
 
 export interface Habit {

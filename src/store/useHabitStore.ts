@@ -31,6 +31,7 @@ function categoryFromDb(row: any): Category {
     icon: row.icon,
     color: row.color,
     order: row.order || 0,
+    parentId: row.parent_id,
   };
 }
 
@@ -42,6 +43,7 @@ function categoryToDb(category: Omit<Category, 'id' | 'order'>, userId: string, 
     color: category.color,
     order,
     user_id: userId,
+    parent_id: category.parentId ?? null,
   };
 }
 
@@ -361,6 +363,7 @@ export const useHabitStore = create<HabitStore>()(
         if (updatedCategory.icon !== undefined) dbUpdate.icon = updatedCategory.icon;
         if (updatedCategory.color !== undefined) dbUpdate.color = updatedCategory.color;
         if (updatedCategory.order !== undefined) dbUpdate.order = updatedCategory.order;
+        if (updatedCategory.parentId !== undefined) dbUpdate.parent_id = updatedCategory.parentId;
 
         await supabase.from('categories').update(dbUpdate).eq('id', id);
       },
@@ -393,7 +396,8 @@ export const useHabitStore = create<HabitStore>()(
           name: c.name,
           icon: c.icon,
           color: c.color,
-          order: c.order
+          order: c.order,
+          parent_id: c.parentId ?? null
         }));
 
         const { error } = await supabase.from('categories').upsert(dbCategories);

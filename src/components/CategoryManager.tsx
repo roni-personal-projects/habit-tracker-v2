@@ -135,6 +135,7 @@ export default function CategoryManager({ isOpen, onClose }: CategoryManagerProp
   const [name, setName] = useState('');
   const [icon, setIcon] = useState('Activity');
   const [color, setColor] = useState(COLORS[0]);
+  const [parentId, setParentId] = useState<string | undefined>(undefined);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -150,6 +151,7 @@ export default function CategoryManager({ isOpen, onClose }: CategoryManagerProp
     setName('');
     setIcon('Activity');
     setColor(COLORS[0]);
+    setParentId(undefined);
     setIsAdding(false);
     setEditingId(null);
   };
@@ -159,9 +161,9 @@ export default function CategoryManager({ isOpen, onClose }: CategoryManagerProp
     if (!name.trim()) return;
 
     if (editingId) {
-      await updateCategory(editingId, { name, icon, color });
+      await updateCategory(editingId, { name, icon, color, parentId });
     } else {
-      await addCategory({ name, icon, color });
+      await addCategory({ name, icon, color, parentId });
     }
     resetForm();
   };
@@ -170,9 +172,11 @@ export default function CategoryManager({ isOpen, onClose }: CategoryManagerProp
     setName(cat.name);
     setIcon(cat.icon);
     setColor(cat.color);
+    setParentId(cat.parentId);
     setEditingId(cat.id);
     setIsAdding(true);
   };
+
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -230,11 +234,35 @@ export default function CategoryManager({ isOpen, onClose }: CategoryManagerProp
                 items={categories.map(c => c.id)} 
                 strategy={verticalListSortingStrategy}
               >
-                <div className="space-y-2">
-                  {categories.map((cat) => (
+                <div className="space-y-4">
+                  {categories.filter(c => !c.parentId).map((parent) => (
+                    <div key={parent.id} className="space-y-2">
+                      <SortableCategoryItem 
+                        cat={parent}
+                        startEdit={startEdit}
+                        deleteCategory={deleteCategory}
+                      />
+                      {/* Sub-categories */}
+                      <div className="pl-6 border-l border-zinc-800 space-y-2 ml-2">
+                        {categories
+                          .filter(c => c.parentId === parent.id)
+                          .map((child) => (
+                            <SortableCategoryItem 
+                              key={child.id}
+                              cat={child}
+                              startEdit={startEdit}
+                              deleteCategory={deleteCategory}
+                            />
+                          ))}
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {/* Ungrouped/Orphaned subcategories if any */}
+                  {categories.filter(c => c.parentId && !categories.some(p => p.id === c.parentId)).map(orphan => (
                     <SortableCategoryItem 
-                      key={cat.id}
-                      cat={cat}
+                      key={orphan.id}
+                      cat={orphan}
                       startEdit={startEdit}
                       deleteCategory={deleteCategory}
                     />
@@ -260,6 +288,23 @@ export default function CategoryManager({ isOpen, onClose }: CategoryManagerProp
                     className="w-full bg-zinc-800/50 border border-zinc-700 rounded-xl px-4 py-2.5 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all"
                     required
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Parent Category (Optional)</label>
+                  <select
+                    value={parentId || ''}
+                    onChange={(e) => setParentId(e.target.value || undefined)}
+                    className="w-full bg-zinc-800/50 border border-zinc-700 rounded-xl px-4 py-2.5 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all text-sm appearance-none"
+                  >
+                    <option value="">None (Top Level)</option>
+                    {categories
+                      .filter(c => c.id !== editingId && !c.parentId) // Only top-level categories can be parents
+                      .map(cat => (
+                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                      ))
+                    }
+                  </select>
                 </div>
 
                 <div className="space-y-2">

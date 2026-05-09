@@ -201,16 +201,37 @@ export default function HabitTable({ onEditHabit }: HabitTableProps) {
     return eachDayOfInterval({ start, end });
   }, [offset]);
 
-  // Group habits by category
+  // Group habits by category hierarchy
   const groupedData = useMemo(() => {
     const ungrouped = habits.filter(h => !h.categoryId);
-    const grouped = categories.map(cat => ({
-      category: cat,
-      habits: habits.filter(h => h.categoryId === cat.id)
-    })).filter(g => g.habits.length > 0);
+    const parents = categories.filter(c => !c.parentId);
 
-    return { ungrouped, grouped };
+    const grouped = parents.map(parent => {
+      const children = categories.filter(c => c.parentId === parent.id);
+      const directHabits = habits.filter(h => h.categoryId === parent.id);
+      const subCategoryGroups = children.map(child => ({
+        category: child,
+        habits: habits.filter(h => h.categoryId === child.id)
+      })).filter(sg => sg.habits.length > 0);
+
+      return {
+        parent,
+        directHabits,
+        subCategoryGroups
+      };
+    }).filter(g => g.directHabits.length > 0 || g.subCategoryGroups.length > 0);
+
+    // Handle orphans (subcategories whose parents were deleted or missing)
+    const orphans = categories
+      .filter(c => c.parentId && !categories.some(p => p.id === c.parentId))
+      .map(cat => ({
+        category: cat,
+        habits: habits.filter(h => h.categoryId === cat.id)
+      })).filter(g => g.habits.length > 0);
+
+    return { ungrouped, grouped, orphans };
   }, [habits, categories]);
+
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -319,7 +340,84 @@ export default function HabitTable({ onEditHabit }: HabitTableProps) {
                   ))}
 
                   {/* Grouped by Category */}
-                  {groupedData.grouped.map(({ category, habits: catHabits }) => {
+                  {groupedData.grouped.map(({ parent, directHabits, subCategoryGroups }) => {
+                    const ParentIcon = (ICONS as any)[parent.icon] || Activity;
+                    return (
+                      <React.Fragment key={parent.id}>
+                        <tr className="bg-zinc-900/80 backdrop-blur-sm sticky-header border-b border-zinc-800">
+                          <td 
+                            colSpan={dates.length + 1} 
+                            className="px-4 py-2"
+                            style={{ backgroundColor: `${parent.color}10` }}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div 
+                                className="p-1 rounded-md"
+                                style={{ color: parent.color }}
+                              >
+                                <ParentIcon size={14} />
+                              </div>
+                              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: parent.color }}>
+                                {parent.name}
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                        {/* Direct Habits */}
+                        {directHabits.map((habit) => (
+                          <SortableHabitRow 
+                            key={habit.id}
+                            habit={habit}
+                            dates={dates}
+                            completions={completions}
+                            toggleCompletion={toggleCompletion}
+                            deleteHabit={deleteHabit}
+                            onEdit={onEditHabit}
+                          />
+                        ))}
+                        {/* Sub-category Habits */}
+                        {subCategoryGroups.map(({ category: child, habits: childHabits }) => {
+                          const ChildIcon = (ICONS as any)[child.icon] || Activity;
+                          return (
+                            <React.Fragment key={child.id}>
+                              <tr className="bg-zinc-900/40 backdrop-blur-sm border-b border-zinc-800/50">
+                                <td 
+                                  colSpan={dates.length + 1} 
+                                  className="px-8 py-1.5"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <div 
+                                      className="p-1 rounded-md"
+                                      style={{ color: child.color }}
+                                    >
+                                      <ChildIcon size={12} />
+                                    </div>
+                                    <span className="text-[9px] font-bold uppercase tracking-widest opacity-60" style={{ color: child.color }}>
+                                      {child.name}
+                                    </span>
+                                  </div>
+                                </td>
+                              </tr>
+                              {childHabits.map((habit) => (
+                                <SortableHabitRow 
+                                  key={habit.id}
+                                  habit={habit}
+                                  dates={dates}
+                                  completions={completions}
+                                  toggleCompletion={toggleCompletion}
+                                  deleteHabit={deleteHabit}
+                                  onEdit={onEditHabit}
+                                />
+                              ))}
+                            </React.Fragment>
+                          );
+                        })}
+                      </React.Fragment>
+                    );
+                  })}
+
+                  {/* Orphans */}
+                  {groupedData.orphans.map(({ category, habits: catHabits }) => {
                     const IconComp = (ICONS as any)[category.icon] || Activity;
                     return (
                       <React.Fragment key={category.id}>
@@ -337,7 +435,7 @@ export default function HabitTable({ onEditHabit }: HabitTableProps) {
                                 <IconComp size={14} />
                               </div>
                               <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: category.color }}>
-                                {category.name}
+                                {category.name} (Orphaned)
                               </span>
                             </div>
                           </td>
