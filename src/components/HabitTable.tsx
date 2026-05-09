@@ -361,7 +361,7 @@ export default function HabitTable({ onEditHabit }: HabitTableProps) {
                               >
                                 <ParentIcon size={14} />
                               </div>
-                              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: parent.color }}>
+                              <span className="text-xs font-bold uppercase tracking-widest" style={{ color: parent.color }}>
                                 {parent.name}
                               </span>
                             </div>
@@ -396,7 +396,7 @@ export default function HabitTable({ onEditHabit }: HabitTableProps) {
                                     >
                                       <ChildIcon size={12} />
                                     </div>
-                                    <span className="text-[9px] font-bold uppercase tracking-widest opacity-60" style={{ color: child.color }}>
+                                    <span className="text-[11px] font-bold uppercase tracking-widest opacity-80" style={{ color: child.color }}>
                                       {child.name}
                                     </span>
                                   </div>
@@ -439,7 +439,7 @@ export default function HabitTable({ onEditHabit }: HabitTableProps) {
                               >
                                 <IconComp size={14} />
                               </div>
-                              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: category.color }}>
+                              <span className="text-xs font-bold uppercase tracking-widest" style={{ color: category.color }}>
                                 {category.name} (Orphaned)
                               </span>
                             </div>

@@ -225,7 +225,7 @@ export default function HabitForm({ isOpen, onClose, habit }: HabitFormProps) {
                       )}
                     >
                       <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: child.color }} />
-                      <span className="opacity-70 text-[10px]">{child.name}</span>
+                      <span className="opacity-90 text-[11px]">{child.name}</span>
                     </button>
                   ))}
                 </React.Fragment>
