@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useHabitStore } from '@/store/useHabitStore';
 import CompletionTrend from '@/components/charts/CompletionTrend';
 import FrequencyChart from '@/components/charts/FrequencyChart';
