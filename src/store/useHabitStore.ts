@@ -363,7 +363,11 @@ export const useHabitStore = create<HabitStore>()(
         if (updatedCategory.icon !== undefined) dbUpdate.icon = updatedCategory.icon;
         if (updatedCategory.color !== undefined) dbUpdate.color = updatedCategory.color;
         if (updatedCategory.order !== undefined) dbUpdate.order = updatedCategory.order;
-        if (updatedCategory.parentId !== undefined) dbUpdate.parent_id = updatedCategory.parentId;
+        
+        // Handle parentId specifically to allow clearing it (setting to null)
+        if (Object.prototype.hasOwnProperty.call(updatedCategory, 'parentId')) {
+          dbUpdate.parent_id = updatedCategory.parentId ?? null;
+        }
 
         await supabase.from('categories').update(dbUpdate).eq('id', id);
       },
