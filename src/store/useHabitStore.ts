@@ -20,6 +20,10 @@ function habitFromDb(row: any): Habit {
     createdAt: new Date(row.created_at),
     startDate: row.start_date,
     endDate: row.end_date,
+    identity: row.identity,
+    twoMinuteRule: row.two_minute_rule,
+    cueAnchor: row.cue_anchor,
+    cueLocation: row.cue_location,
   };
 }
 
@@ -61,6 +65,10 @@ function habitToDb(habit: Omit<Habit, 'id' | 'createdAt'>, userId: string, id: s
     created_at: new Date().toISOString(),
     start_date: habit.startDate ?? null,
     end_date: habit.endDate ?? null,
+    identity: habit.identity ?? null,
+    two_minute_rule: habit.twoMinuteRule ?? null,
+    cue_anchor: habit.cueAnchor ?? null,
+    cue_location: habit.cueLocation ?? null,
   };
 }
 
@@ -70,15 +78,17 @@ function completionFromDb(row: any): Completion {
     id: row.id,
     habitId: row.habit_id,
     date: row.date,
+    status: row.status || 'full',
   };
 }
 
-function completionToDb(habitId: string, date: string, userId: string, id: string) {
+function completionToDb(habitId: string, date: string, userId: string, id: string, status?: 'full' | 'micro') {
   return {
     id,
     habit_id: habitId,
     date,
     user_id: userId,
+    status: status || 'full',
   };
 }
 
@@ -326,8 +336,16 @@ export const useHabitStore = create<HabitStore>()(
         if (updatedHabit.order !== undefined) dbUpdate.order = updatedHabit.order;
         if (updatedHabit.startDate !== undefined) dbUpdate.start_date = updatedHabit.startDate;
         if (updatedHabit.endDate !== undefined) dbUpdate.end_date = updatedHabit.endDate;
+        if (updatedHabit.identity !== undefined) dbUpdate.identity = updatedHabit.identity;
+        if (updatedHabit.twoMinuteRule !== undefined) dbUpdate.two_minute_rule = updatedHabit.twoMinuteRule;
+        if (updatedHabit.cueAnchor !== undefined) dbUpdate.cue_anchor = updatedHabit.cueAnchor;
+        if (updatedHabit.cueLocation !== undefined) dbUpdate.cue_location = updatedHabit.cueLocation;
 
-        await supabase.from('habits').update(dbUpdate).eq('id', id);
+        try {
+          await supabase.from('habits').update(dbUpdate).eq('id', id);
+        } catch (e) {
+          console.error('Error updating habit in db:', e);
+        }
       },
 
       deleteHabit: async (id) => {
@@ -361,7 +379,11 @@ export const useHabitStore = create<HabitStore>()(
           order: h.order,
           created_at: h.createdAt.toISOString(),
           start_date: h.startDate ?? null,
-          end_date: h.endDate ?? null
+          end_date: h.endDate ?? null,
+          identity: h.identity ?? null,
+          two_minute_rule: h.twoMinuteRule ?? null,
+          cue_anchor: h.cueAnchor ?? null,
+          cue_location: h.cueLocation ?? null,
         }));
 
         const { error } = await supabase.from('habits').upsert(dbHabits);
@@ -452,22 +474,59 @@ export const useHabitStore = create<HabitStore>()(
         }
       },
 
-      toggleCompletion: async (habitId, date) => {
+      toggleCompletion: async (habitId, date, targetStatus) => {
         const { userId, completions } = get();
         if (!userId) return;
 
         const exists = completions.find((c) => c.habitId === habitId && c.date === date);
 
-        if (exists) {
-          set({ completions: completions.filter((c) => c.id !== exists.id) });
-          await supabase.from('completions').delete().eq('id', exists.id);
-        } else {
+        if (!exists) {
+          // New completion: default to targetStatus or 'full'
+          const status = targetStatus || 'full';
           const id = uuidv4();
-          const newCompletion: Completion = { id, habitId, date };
+          const newCompletion: Completion = { id, habitId, date, status };
           set({ completions: [...completions, newCompletion] });
-          const { error } = await supabase.from('completions').insert([completionToDb(habitId, date, userId, id)]);
-          if (error) {
-            console.error('Error toggling completion:', error.message);
+          try {
+            await supabase.from('completions').insert([completionToDb(habitId, date, userId, id, status)]);
+          } catch (e) {
+            console.error('Error toggling completion:', e);
+          }
+        } else if (!targetStatus) {
+          // Cycle: full -> micro -> remove
+          if (exists.status === 'full' || !exists.status) {
+            const updated: Completion = { ...exists, status: 'micro' };
+            set({ completions: completions.map((c) => (c.id === exists.id ? updated : c)) });
+            try {
+              await supabase.from('completions').update({ status: 'micro' }).eq('id', exists.id);
+            } catch (e) {
+              console.error('Error updating completion to micro:', e);
+            }
+          } else {
+            // It was micro -> remove
+            set({ completions: completions.filter((c) => c.id !== exists.id) });
+            try {
+              await supabase.from('completions').delete().eq('id', exists.id);
+            } catch (e) {
+              console.error('Error removing completion:', e);
+            }
+          }
+        } else {
+          // Explicit targetStatus passed
+          if (exists.status === targetStatus) {
+            set({ completions: completions.filter((c) => c.id !== exists.id) });
+            try {
+              await supabase.from('completions').delete().eq('id', exists.id);
+            } catch (e) {
+              console.error('Error removing completion:', e);
+            }
+          } else {
+            const updated: Completion = { ...exists, status: targetStatus };
+            set({ completions: completions.map((c) => (c.id === exists.id ? updated : c)) });
+            try {
+              await supabase.from('completions').update({ status: targetStatus }).eq('id', exists.id);
+            } catch (e) {
+              console.error('Error updating completion status:', e);
+            }
           }
         }
       },

@@ -1,4 +1,5 @@
 export type Frequency = 'daily' | 'weekly' | 'monthly' | 'custom';
+export type CompletionStatus = 'full' | 'micro';
 
 export interface Category {
   id: string;
@@ -21,12 +22,18 @@ export interface Habit {
   createdAt: Date;
   startDate?: string; // YYYY-MM-DD
   endDate?: string;   // YYYY-MM-DD
+  // Atomic Habits & Behavioral Additions:
+  identity?: string;          // e.g. 'The Disciplined Athlete', 'The Deep Thinker'
+  twoMinuteRule?: string;     // Micro/Emergency version (e.g. 'Do 2 pushups', 'Read 1 page')
+  cueAnchor?: string;         // Habit stacking trigger (e.g. 'After pouring morning coffee')
+  cueLocation?: string;       // Context cue (e.g. 'At my desk')
 }
 
 export interface Completion {
   id: string;
   habitId: string;
   date: string; // ISO string YYYY-MM-DD
+  status?: CompletionStatus; // 'full' (default) or 'micro' (2-minute rule)
 }
 
 export interface SleepLog {
@@ -66,7 +73,7 @@ export interface HabitStore {
   deleteCategory: (id: string) => Promise<void>;
   reorderCategories: (categories: Category[]) => Promise<void>;
   
-  toggleCompletion: (habitId: string, date: string) => Promise<void>;
+  toggleCompletion: (habitId: string, date: string, targetStatus?: CompletionStatus) => Promise<void>;
   addSleepLog: (log: Omit<SleepLog, 'id'>) => Promise<void>;
   deleteSleepLog: (id: string) => Promise<void>;
   

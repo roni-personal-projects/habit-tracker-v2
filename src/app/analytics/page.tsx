@@ -7,8 +7,8 @@ import FrequencyChart from '@/components/charts/FrequencyChart';
 import GlobalPieChart from '@/components/charts/GlobalPieChart';
 import MonthlyHabitPie from '@/components/charts/MonthlyHabitPie';
 import ScreenTimeTrend from '@/components/charts/ScreenTimeTrend';
-import { calculateStreak, getCompletionStats } from '@/lib/streak-logic';
-import { Flame, Target, TrendingUp, Calendar, PieChart as PieChartIcon, Activity, Book, Brain, Briefcase, Camera, Code, Coffee, Coins, Dumbbell, Gamepad, GraduationCap, Heart, Home, Image, Laptop, Languages, Lightbulb, Music, Palette, Pill, Plane, Play, Rocket, ShoppingCart, Smile, Star, Target as TargetIcon, Tv, Utensils, Zap } from 'lucide-react';
+import { calculateStreak, getCompletionStats, calculateIdentityVotes, getKeystoneInsights } from '@/lib/streak-logic';
+import { Flame, Target, TrendingUp, Calendar, PieChart as PieChartIcon, Sparkles, Moon, Key, Activity, Book, Brain, Briefcase, Camera, Code, Coffee, Coins, Dumbbell, Gamepad, GraduationCap, Heart, Home, Image, Laptop, Languages, Lightbulb, Music, Palette, Pill, Plane, Play, Rocket, ShoppingCart, Smile, Star, Target as TargetIcon, Tv, Utensils, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const ICONS = {
@@ -21,7 +21,15 @@ const ICONS = {
 };
 
 export default function AnalyticsPage() {
-  const { habits, categories, completions } = useHabitStore();
+  const { habits, categories, completions, sleepLogs, screenTimeLogs } = useHabitStore();
+
+  const keystoneInsights = useMemo(() => {
+    return getKeystoneInsights(habits, completions, sleepLogs, screenTimeLogs);
+  }, [habits, completions, sleepLogs, screenTimeLogs]);
+
+  const identityVotes = useMemo(() => {
+    return calculateIdentityVotes(habits, completions);
+  }, [habits, completions]);
 
   if (habits.length === 0) {
     return (
@@ -37,6 +45,8 @@ export default function AnalyticsPage() {
 
   // Aggregate Stats
   const totalCompletions = completions.length;
+  const fullCompletionsCount = completions.filter(c => !c.status || c.status === 'full').length;
+  const microCompletionsCount = completions.filter(c => c.status === 'micro').length;
   const avgCompletionRate = habits.length > 0
     ? Math.round(habits.reduce((acc, h) => acc + getCompletionStats(h, completions).rate, 0) / habits.length)
     : 0;
@@ -73,14 +83,17 @@ export default function AnalyticsPage() {
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
       <header>
         <h1 className="text-3xl font-bold tracking-tight text-white mb-1">Advanced Analytics</h1>
-        <p className="text-zinc-400">Deep dive into your performance and consistency patterns.</p>
+        <p className="text-zinc-400">Behavioral insights, Keystone correlation, and identity compounding.</p>
       </header>
 
       {/* Aggregate Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="glass-card p-6 rounded-2xl border border-zinc-800/50">
           <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1">Total Completions</p>
-          <p className="text-3xl font-black text-white">{totalCompletions}</p>
+          <div className="flex items-baseline gap-2">
+            <p className="text-3xl font-black text-white">{totalCompletions}</p>
+            <span className="text-xs text-zinc-500">votes cast</span>
+          </div>
         </div>
         <div className="glass-card p-6 rounded-2xl border border-zinc-800/50">
           <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1">Avg Completion Rate</p>
@@ -89,7 +102,157 @@ export default function AnalyticsPage() {
             <TrendingUp size={20} className="text-emerald-500" />
           </div>
         </div>
+        <div className="glass-card p-6 rounded-2xl border border-zinc-800/50">
+          <p className="text-xs font-bold text-amber-500 uppercase tracking-widest mb-1 flex items-center gap-1">
+            <Zap size={14} /> 2-Min Micro Habits
+          </p>
+          <div className="flex items-baseline gap-2">
+            <p className="text-3xl font-black text-amber-400">{microCompletionsCount}</p>
+            <span className="text-xs text-zinc-400">streaks saved</span>
+          </div>
+        </div>
+        <div className="glass-card p-6 rounded-2xl border border-zinc-800/50">
+          <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1 flex items-center gap-1">
+            <Sparkles size={14} className="text-amber-400" /> Identity Personas
+          </p>
+          <div className="flex items-baseline gap-2">
+            <p className="text-3xl font-black text-white">{identityVotes.length}</p>
+            <span className="text-xs text-zinc-500">active tracks</span>
+          </div>
+        </div>
       </div>
+
+      {/* 🔬 Keystone Habit & Cross-Domain Intelligence */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <Key size={20} className="text-amber-400" />
+            Keystone Habit & Cross-Domain Intelligence
+          </h2>
+          <span className="text-xs text-zinc-500 font-bold uppercase tracking-wider bg-zinc-800/60 px-3 py-1 rounded-full border border-zinc-700/50">
+            Atomic Habits & The Power of Habit
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* 1. Sleep Leverage */}
+          <div className="glass-card p-6 rounded-2xl border border-zinc-800/50 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Moon size={15} /> Sleep Leverage
+                </span>
+                {keystoneInsights.sleepDelta > 0 && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    +{keystoneInsights.sleepDelta}% Boost
+                  </span>
+                )}
+              </div>
+              <h3 className="font-bold text-white text-base mb-1">Rest vs. Discipline</h3>
+              <p className="text-xs text-zinc-400 leading-relaxed">
+                Completion rate after optimal sleep (≥7.5h): <strong className="text-white">{keystoneInsights.optimalSleepRate}%</strong>
+                <br />
+                Completion rate after poor sleep (&lt;7.0h): <strong className="text-zinc-400">{keystoneInsights.suboptimalSleepRate}%</strong>
+              </p>
+            </div>
+            <p className="text-[11px] text-zinc-500 mt-4 italic">
+              Sleep is the neurological foundation for executive function and habit retention.
+            </p>
+          </div>
+
+          {/* 2. Screen Time Friction */}
+          <div className="glass-card p-6 rounded-2xl border border-zinc-800/50 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-bold text-violet-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Laptop size={15} /> Screen Time Friction
+                </span>
+                {keystoneInsights.screenDelta > 0 && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30">
+                    -{keystoneInsights.screenDelta}% Drop
+                  </span>
+                )}
+              </div>
+              <h3 className="font-bold text-white text-base mb-1">Digital Depletion</h3>
+              <p className="text-xs text-zinc-400 leading-relaxed">
+                Consistency on low screen days (&lt;2.5h): <strong className="text-white">{keystoneInsights.lowScreenTimeRate}%</strong>
+                <br />
+                Consistency on high screen days (≥4h): <strong className="text-zinc-400">{keystoneInsights.highScreenTimeRate}%</strong>
+              </p>
+            </div>
+            <p className="text-[11px] text-zinc-500 mt-4 italic">
+              Excessive screen time drains willpower reserves needed for difficult evening habits.
+            </p>
+          </div>
+
+          {/* 3. Top Keystone Habit */}
+          <div className="glass-card p-6 rounded-2xl border border-amber-500/20 bg-gradient-to-br from-amber-500/[0.05] to-transparent flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Key size={15} /> #1 Keystone Habit
+                </span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  Primary Domino
+                </span>
+              </div>
+              {keystoneInsights.topKeystoneHabit ? (
+                <>
+                  <h3 className="font-bold text-white text-base mb-1">
+                    {keystoneInsights.topKeystoneHabit.habit.name}
+                  </h3>
+                  <p className="text-xs text-zinc-300 leading-relaxed">
+                    When you complete this habit, you execute <strong className="text-amber-300">{keystoneInsights.topKeystoneHabit.otherHabitRate}%</strong> of all other scheduled habits on the same day.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h3 className="font-bold text-white text-base mb-1">Calculating Correlation</h3>
+                  <p className="text-xs text-zinc-400 leading-relaxed">
+                    Log at least 3-5 completions across different days to unlock your crowned keystone habit.
+                  </p>
+                </>
+              )}
+            </div>
+            <p className="text-[11px] text-zinc-500 mt-4 italic">
+              Keystone habits trigger positive cascading behavioral momentum.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* 🏛️ Identity Portfolio (Atomic Habits) */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <Sparkles size={20} className="text-amber-400" />
+            Identity Portfolio & Empirical Votes Cast
+          </h2>
+          <span className="text-xs text-zinc-500 font-bold uppercase tracking-wider bg-zinc-800/60 px-3 py-1 rounded-full border border-zinc-700/50">
+            Every Action Is A Vote
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {identityVotes.map((iv) => (
+            <div key={iv.identity} className="glass-card p-6 rounded-2xl border border-zinc-800/50 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-bold text-white text-base">{iv.identity}</h3>
+                  <span className="text-xs font-black text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                    +{iv.weeklyVotes} this week
+                  </span>
+                </div>
+                <p className="text-xs text-zinc-400">{iv.habitsCount} connected habit(s)</p>
+              </div>
+              <div className="mt-4 pt-4 border-t border-zinc-800 flex items-center justify-between">
+                <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Lifetime Votes</span>
+                <span className="text-xl font-black text-white">{iv.totalVotes}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <section className="lg:col-span-2 glass-card p-6 rounded-2xl border border-zinc-800/50">

@@ -26,15 +26,17 @@ export default function TablePage() {
 
   const handleExport = () => {
     const today = format(new Date(), 'yyyy-MM-dd');
-    let content = `# HabitFlow Performance Report (${today})\n\n`;
+    let content = `# HabitFlow Behavioral & Performance Report (${today})\n\n`;
 
-    content += `## 🚀 AI Analysis Prompt\n`;
-    content += `> Copy and paste the text below into an AI (like Gemini or ChatGPT) for personalized coaching:\n\n`;
-    content += `\`\`\`text\nI've attached my progress. Analyze which categories I struggle with most and suggest appropriate changes to my routine to improve my consistency.\n\`\`\`\n\n`;
+    content += `## 🚀 AI Behavioral Coaching Prompt\n`;
+    content += `> Copy and paste the text below into an AI (like Gemini or ChatGPT) for personalized Atomic Habits & 12-Week Year coaching:\n\n`;
+    content += `\`\`\`text\nAct as a world-class behavioral performance coach trained in James Clear's 'Atomic Habits', BJ Fogg's 'Tiny Habits', and Brian Moran's 'The 12 Week Year'.\nReview my attached habit data below. Specifically:\n1. Audit my identity alignment: Are my daily votes sufficient to embody my stated personas?\n2. Identify friction bottlenecks where consistency falls below the 85% execution standard.\n3. Recommend improvements to my Habit Stacking Cues and 2-Minute Emergency Rules.\n4. Pinpoint potential Keystone Habits based on my sleep and completion metrics.\n\`\`\`\n\n`;
 
     content += `## 📊 Executive Summary\n`;
     content += `- **Total Habits**: ${habits.length}\n`;
     content += `- **Total Completions**: ${completions.length}\n`;
+    content += `- **Full Completions**: ${completions.filter(c => !c.status || c.status === 'full').length}\n`;
+    content += `- **2-Min Micro Completions**: ${completions.filter(c => c.status === 'micro').length}\n`;
     content += `- **Active Categories**: ${categories.length}\n\n`;
 
     content += `## 📁 Category Performance\n`;
@@ -53,13 +55,16 @@ export default function TablePage() {
       content += `- **Habits**: ${catHabits.map(h => h.name).join(', ')}\n\n`;
     });
 
-    content += `## 📝 Raw Habit Data\n`;
-    content += `| Habit | Category | Frequency | Consistency |\n`;
-    content += `| :--- | :--- | :--- | :--- |\n`;
+    content += `## 📝 Raw Habit Data (With Behavioral Architecture)\n`;
+    content += `| Habit | Identity Persona | Category | Frequency | Consistency | Habit Stack Cue | 2-Min Micro Rule |\n`;
+    content += `| :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n`;
     habits.forEach(h => {
       const cat = categories.find(c => c.id === h.categoryId)?.name || 'None';
       const stats = getCompletionStats(h, completions);
-      content += `| ${h.name} | ${cat} | ${h.frequency} | ${stats.rate}% |\n`;
+      const identity = h.identity || 'General';
+      const cue = h.cueAnchor ? `After ${h.cueAnchor}` : 'None';
+      const micro = h.twoMinuteRule || 'None';
+      content += `| ${h.name} | ${identity} | ${cat} | ${h.frequency} | ${stats.rate}% | ${cue} | ${micro} |\n`;
     });
 
     content += `\n\n## 💤 Sleep Performance (Last 7 Logs)\n`;

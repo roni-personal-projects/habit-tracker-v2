@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useHabitStore } from '@/store/useHabitStore';
 import { Frequency, Habit } from '@/types';
-import { X, Check, Plus, Settings } from 'lucide-react';
+import { X, Check, Plus, Settings, Sparkles, Zap, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import CategoryManager from './CategoryManager';
 
@@ -15,6 +15,15 @@ const COLORS = [
   '#8b5cf6', // violet
   '#ec4899', // pink
   '#06b6d4', // cyan
+];
+
+const IDENTITY_PRESETS = [
+  'The Disciplined Athlete',
+  'The Deep Thinker',
+  'The Systems Builder',
+  'The Mindful Stoic',
+  'The Prolific Writer',
+  'The Health Optimizer',
 ];
 
 interface HabitFormProps {
@@ -33,6 +42,11 @@ export default function HabitForm({ isOpen, onClose, habit }: HabitFormProps) {
   const [categoryId, setCategoryId] = useState<string | undefined>(habit?.categoryId);
   const [startDate, setStartDate] = useState(habit?.startDate || '');
   const [endDate, setEndDate] = useState(habit?.endDate || '');
+  // Atomic Habits behavioral fields
+  const [identity, setIdentity] = useState(habit?.identity || '');
+  const [twoMinuteRule, setTwoMinuteRule] = useState(habit?.twoMinuteRule || '');
+  const [cueAnchor, setCueAnchor] = useState(habit?.cueAnchor || '');
+  const [cueLocation, setCueLocation] = useState(habit?.cueLocation || '');
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
 
   // Sync state with habit if editing
@@ -46,6 +60,10 @@ export default function HabitForm({ isOpen, onClose, habit }: HabitFormProps) {
       setCategoryId(habit.categoryId);
       setStartDate(habit.startDate || '');
       setEndDate(habit.endDate || '');
+      setIdentity(habit.identity || '');
+      setTwoMinuteRule(habit.twoMinuteRule || '');
+      setCueAnchor(habit.cueAnchor || '');
+      setCueLocation(habit.cueLocation || '');
     } else {
       setName('');
       setColor(COLORS[0]);
@@ -55,6 +73,10 @@ export default function HabitForm({ isOpen, onClose, habit }: HabitFormProps) {
       setCategoryId(undefined);
       setStartDate('');
       setEndDate('');
+      setIdentity('');
+      setTwoMinuteRule('');
+      setCueAnchor('');
+      setCueLocation('');
     }
   }, [habit, isOpen]);
 
@@ -79,6 +101,10 @@ export default function HabitForm({ isOpen, onClose, habit }: HabitFormProps) {
       categoryId,
       startDate: startDate || undefined,
       endDate: endDate || undefined,
+      identity: identity.trim() || undefined,
+      twoMinuteRule: twoMinuteRule.trim() || undefined,
+      cueAnchor: cueAnchor.trim() || undefined,
+      cueLocation: cueLocation.trim() || undefined,
     };
 
     if (habit) {
@@ -286,6 +312,96 @@ export default function HabitForm({ isOpen, onClose, habit }: HabitFormProps) {
               />
             </div>
           )}
+
+          {/* 🧠 Atomic Habits & Behavioral Architecture Section */}
+          <div className="p-4 rounded-xl bg-zinc-800/40 border border-zinc-700/60 space-y-4">
+            <div className="flex items-center gap-2 text-amber-400">
+              <Sparkles size={16} />
+              <span className="text-xs font-bold uppercase tracking-wider">Atomic Habits Architecture</span>
+            </div>
+
+            {/* 1. Identity Persona */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
+                Identity Persona (Who are you becoming?)
+              </label>
+              <input
+                type="text"
+                value={identity}
+                onChange={(e) => setIdentity(e.target.value)}
+                placeholder="e.g. The Disciplined Athlete, The Deep Thinker"
+                className="w-full bg-zinc-900/80 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-amber-500"
+              />
+              <div className="flex flex-wrap gap-1 mt-1">
+                {IDENTITY_PRESETS.map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setIdentity(preset)}
+                    className={cn(
+                      "text-[10px] px-2 py-0.5 rounded-full border transition-all",
+                      identity === preset
+                        ? "bg-amber-500/20 border-amber-500 text-amber-300 font-bold"
+                        : "bg-zinc-800/80 border-zinc-700 text-zinc-400 hover:text-zinc-200"
+                    )}
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-zinc-500">
+                Every completion casts a vote for this underlying identity.
+              </p>
+            </div>
+
+            {/* 2. Habit Stacking Cue */}
+            <div className="space-y-1.5 pt-2 border-t border-zinc-700/40">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
+                Habit Stacking & Cue (1st Law: Make It Obvious)
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  value={cueAnchor}
+                  onChange={(e) => setCueAnchor(e.target.value)}
+                  placeholder="Anchor: After I pour morning coffee..."
+                  className="w-full bg-zinc-900/80 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                />
+                <input
+                  type="text"
+                  value={cueLocation}
+                  onChange={(e) => setCueLocation(e.target.value)}
+                  placeholder="Location: At my study desk..."
+                  className="w-full bg-zinc-900/80 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                />
+              </div>
+              {cueAnchor && (
+                <div className="text-[10px] font-medium text-amber-400/90 bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
+                  ⚡ Formula: After <strong>{cueAnchor}</strong>, I will <strong>{name || '[Habit]'}</strong>{cueLocation ? ` at ${cueLocation}` : ''}.
+                </div>
+              )}
+            </div>
+
+            {/* 3. The 2-Minute Rule */}
+            <div className="space-y-1.5 pt-2 border-t border-zinc-700/40">
+              <div className="flex items-center gap-1.5 text-zinc-400">
+                <Zap size={13} className="text-amber-400" />
+                <label className="text-[11px] font-bold uppercase tracking-wider">
+                  2-Minute Scaled Version (3rd Law: Make It Easy)
+                </label>
+              </div>
+              <input
+                type="text"
+                value={twoMinuteRule}
+                onChange={(e) => setTwoMinuteRule(e.target.value)}
+                placeholder="e.g. Do 2 pushups, Read 1 page, Open terminal"
+                className="w-full bg-zinc-900/80 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-amber-500"
+              />
+              <p className="text-[10px] text-zinc-500">
+                When exhausted or busy, executing this 2-min version still preserves your streak and keeps your identity vote alive.
+              </p>
+            </div>
+          </div>
 
           <div className="space-y-2">
             <label className="text-xs font-bold uppercase tracking-wider text-zinc-500">Pick a Color</label>

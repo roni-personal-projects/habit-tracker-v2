@@ -4,7 +4,7 @@ import React, { useMemo } from 'react';
 import { format, subDays, eachDayOfInterval, startOfDay, isToday as isTodayFn, isFuture } from 'date-fns';
 import { useHabitStore } from '@/store/useHabitStore';
 import { calculateStreak } from '@/lib/streak-logic';
-import { Check, Flame, Plus, ChevronLeft, ChevronRight, RotateCcw, Trash2, GripVertical, Edit2, Activity, Book, Brain, Briefcase, Camera, Code, Coffee, Coins, Dumbbell, Gamepad, GraduationCap, Heart, Home, Image, Laptop, Languages, Lightbulb, Music, Palette, Pill, Plane, Play, Rocket, ShoppingCart, Smile, Star, Target, Tv, Utensils, Zap } from 'lucide-react';
+import { Check, Flame, Plus, ChevronLeft, ChevronRight, RotateCcw, Trash2, GripVertical, Edit2, Zap, AlertTriangle, ShieldCheck, Activity, Book, Brain, Briefcase, Camera, Code, Coffee, Coins, Dumbbell, Gamepad, GraduationCap, Heart, Home, Image, Laptop, Languages, Lightbulb, Music, Palette, Pill, Plane, Play, Rocket, ShoppingCart, Smile, Star, Target, Tv, Utensils } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   DndContext,
@@ -60,7 +60,7 @@ function SortableHabitRow({ habit, dates, completions, toggleCompletion, deleteH
     position: 'relative' as const,
   };
 
-  const { currentStreak } = calculateStreak(habit, completions);
+  const { currentStreak, isAtRisk, recoveredLapses } = calculateStreak(habit, completions);
 
   return (
     <tr 
@@ -85,11 +85,18 @@ function SortableHabitRow({ habit, dates, completions, toggleCompletion, deleteH
           </button>
           
           <div className="flex items-center justify-between flex-1 gap-4">
-            <div className="flex flex-col">
-              <span className="font-medium text-zinc-100">{habit.name}</span>
-              <div className="flex items-center gap-1.5 mt-1">
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-medium text-zinc-100 truncate">{habit.name}</span>
+                {habit.identity && (
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                    {habit.identity}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center flex-wrap gap-1.5 mt-1">
                 <span 
-                  className="w-2 h-2 rounded-full" 
+                  className="w-2 h-2 rounded-full shrink-0" 
                   style={{ backgroundColor: habit.color }}
                 />
                 <span className="text-[10px] text-zinc-500 uppercase tracking-tight">
@@ -98,14 +105,29 @@ function SortableHabitRow({ habit, dates, completions, toggleCompletion, deleteH
                     : habit.frequency}
                 </span>
                 {currentStreak > 0 && (
-                  <div className="flex items-center gap-0.5 ml-2 text-orange-500">
+                  <div className="flex items-center gap-0.5 ml-1 text-orange-500">
                     <Flame size={12} fill="currentColor" />
                     <span className="text-xs font-bold">{currentStreak}</span>
                   </div>
                 )}
+                {recoveredLapses > 0 && (
+                  <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20" title={`${recoveredLapses} lapse(s) recovered via Never Miss Twice`}>
+                    🛡️ {recoveredLapses} saved
+                  </span>
+                )}
+                {isAtRisk && (
+                  <span className="flex items-center gap-1 text-[9px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/30 animate-pulse" title="Missed yesterday! Complete today to protect your streak.">
+                    <AlertTriangle size={10} /> At Risk
+                  </span>
+                )}
               </div>
+              {habit.cueAnchor && (
+                <span className="text-[10px] text-zinc-400/80 italic mt-0.5 truncate max-w-[220px]" title={`Stack: After ${habit.cueAnchor}`}>
+                  ⚡ After {habit.cueAnchor}
+                </span>
+              )}
             </div>
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all shrink-0">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -134,9 +156,11 @@ function SortableHabitRow({ habit, dates, completions, toggleCompletion, deleteH
       </td>
       {dates.map((date) => {
         const dateStr = format(date, 'yyyy-MM-dd');
-        const isCompleted = completions.some(
+        const comp = completions.find(
           (c) => c.habitId === habit.id && c.date === dateStr
         );
+        const isCompleted = !!comp;
+        const isMicro = comp?.status === 'micro';
         const isDue = habit.selectedDays && habit.selectedDays.length > 0 
           ? habit.selectedDays.includes(date.getDay())
           : true;
@@ -154,25 +178,32 @@ function SortableHabitRow({ habit, dates, completions, toggleCompletion, deleteH
             )}
             onClick={() => !future && isActive && toggleCompletion(habit.id, dateStr)}
           >
-            <div className={cn(
-              "w-full h-14 flex items-center justify-center transition-all duration-300",
-              isCompleted ? "scale-100" : "scale-100"
-            )}>
+            <div className="w-full h-14 flex items-center justify-center transition-all duration-300">
               <div 
                 className={cn(
                   "w-6 h-6 rounded-md border flex items-center justify-center transition-all duration-200",
                   !isActive && "opacity-0 scale-50",
-                  isCompleted 
-                    ? "shadow-lg" 
-                    : "border-zinc-700 bg-zinc-800/50 hover:border-zinc-600"
+                  !isCompleted && "border-zinc-700 bg-zinc-800/50 hover:border-zinc-500",
+                  isCompleted && !isMicro && "shadow-lg",
+                  isCompleted && isMicro && "border-amber-500 bg-amber-500/20 text-amber-300 shadow-md"
                 )}
-                style={isCompleted ? { 
+                style={isCompleted && !isMicro ? { 
                   backgroundColor: habit.color,
                   borderColor: habit.color,
                   boxShadow: `0 0 12px ${habit.color}40`
+                } : isCompleted && isMicro ? {
+                  boxShadow: '0 0 10px rgba(245, 158, 11, 0.3)'
                 } : {}}
+                title={
+                  isCompleted
+                    ? isMicro
+                      ? `2-Min Micro: ${habit.twoMinuteRule || 'Completed'} (Click to clear)`
+                      : 'Full habit completed (Click for 2-min micro)'
+                    : 'Click to complete'
+                }
               >
-                {isCompleted && <Check size={14} className="text-white stroke-[3px]" />}
+                {isCompleted && !isMicro && <Check size={14} className="text-white stroke-[3px]" />}
+                {isCompleted && isMicro && <Zap size={12} className="text-amber-300 fill-amber-300" />}
               </div>
             </div>
           </td>
@@ -285,6 +316,27 @@ export default function HabitTable({ onEditHabit }: HabitTableProps) {
         <div className="text-xs font-bold text-zinc-500 uppercase tracking-widest bg-zinc-800/50 px-3 py-1.5 rounded-full">
           {format(dates[0], 'MMM d')} — {format(dates[dates.length - 1], 'MMM d, yyyy')}
         </div>
+      </div>
+
+      {/* Atomic Habits Behavioral Legend */}
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 rounded-xl bg-zinc-900/60 border border-zinc-800/80 text-xs">
+        <div className="flex items-center gap-4 flex-wrap">
+          <span className="flex items-center gap-1.5 text-zinc-300">
+            <span className="w-4 h-4 rounded bg-emerald-600 flex items-center justify-center text-white"><Check size={11} className="stroke-[3px]" /></span>
+            <span className="font-medium">Full Habit</span>
+          </span>
+          <span className="flex items-center gap-1.5 text-zinc-300">
+            <span className="w-4 h-4 rounded bg-amber-500/20 border border-amber-500 text-amber-300 flex items-center justify-center"><Zap size={10} className="fill-amber-300" /></span>
+            <span className="font-medium">2-Min Micro</span>
+          </span>
+          <span className="flex items-center gap-1.5 text-zinc-400">
+            <span className="text-[10px] text-amber-400 bg-amber-500/10 px-1 rounded border border-amber-500/30 font-bold">⚠️ At Risk</span>
+            <span>Never Miss Twice Alert</span>
+          </span>
+        </div>
+        <span className="text-[11px] text-zinc-500 italic">
+          Click cell: Full → Micro (2-Min Rule) → Clear
+        </span>
       </div>
 
       <div className="w-full overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/50 backdrop-blur-sm">
