@@ -150,6 +150,11 @@ export const useHabitStore = create<HabitStore>()(
       isInitialized: false,
       userId: null,
 
+      // 12-Week Year Sprint Configuration
+      sprintGoal: 'Quarterly Peak Performance & Consistency',
+      sprintStartDate: new Date().toISOString().split('T')[0],
+      sprintTargetRate: 85,
+
       initialize: async (userId: string) => {
         // Only skip if already initialized for the same user in this session
         if (get().isInitialized && get().userId === userId) return;
@@ -600,6 +605,13 @@ export const useHabitStore = create<HabitStore>()(
 
         await supabase.from('screen_time_logs').delete().eq('id', id);
       },
+
+      updateSprintSettings: (settings) => {
+        set((state) => ({
+          ...state,
+          ...settings,
+        }));
+      },
     }),
     {
       name: 'habit-tracker-storage',
@@ -610,6 +622,9 @@ export const useHabitStore = create<HabitStore>()(
         completions: state.completions,
         sleepLogs: state.sleepLogs,
         screenTimeLogs: state.screenTimeLogs,
+        sprintGoal: state.sprintGoal,
+        sprintStartDate: state.sprintStartDate,
+        sprintTargetRate: state.sprintTargetRate,
       }),
     }
   )

@@ -79,5 +79,11 @@ export interface HabitStore {
   
   addScreenTimeLog: (log: Omit<ScreenTimeLog, 'id'>) => Promise<void>;
   deleteScreenTimeLog: (id: string) => Promise<void>;
+
+  // 12-Week Year Sprint Configuration:
+  sprintGoal?: string;
+  sprintStartDate?: string;
+  sprintTargetRate?: number;
+  updateSprintSettings: (settings: { sprintGoal?: string; sprintStartDate?: string; sprintTargetRate?: number }) => void;
 }
 

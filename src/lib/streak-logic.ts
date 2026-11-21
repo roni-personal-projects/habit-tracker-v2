@@ -362,7 +362,11 @@ export interface WeeklyExecutionScore {
   status: 'elite' | 'operational' | 'needs_alignment'; // 85% rule from The 12 Week Year
 }
 
-export const calculateWeeklyExecution = (habits: Habit[], completions: Completion[]): WeeklyExecutionScore => {
+export const calculateWeeklyExecution = (
+  habits: Habit[], 
+  completions: Completion[],
+  targetRate: number = 85
+): WeeklyExecutionScore => {
   const now = new Date();
   const weekStart = startOfWeek(now, { weekStartsOn: 1 });
   const today = startOfDay(now);
@@ -401,11 +405,11 @@ export const calculateWeeklyExecution = (habits: Habit[], completions: Completio
 
   const rate = scheduledCount > 0 ? Math.round((completedCount / scheduledCount) * 100) : 0;
   
-  // 12 Week Year Standard: 85%+ is Elite execution
+  // 12 Week Year Standard: Target rate (default 85%+) is Elite execution
   let status: 'elite' | 'operational' | 'needs_alignment' = 'needs_alignment';
-  if (rate >= 85) {
+  if (rate >= targetRate) {
     status = 'elite';
-  } else if (rate >= 70) {
+  } else if (rate >= Math.round(targetRate * 0.8)) {
     status = 'operational';
   }
 
