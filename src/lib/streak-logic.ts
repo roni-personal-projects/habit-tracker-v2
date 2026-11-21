@@ -1,4 +1,5 @@
 import { 
+  format,
   differenceInCalendarDays, 
   isSameDay, 
   subDays, 
@@ -529,4 +530,340 @@ export const getKeystoneInsights = (
     screenDelta,
     topKeystoneHabit
   };
+};
+
+// ─── Executive Behavioral Analytics Calculations ──────────────────────────────
+
+export interface RollingVelocity {
+  currentRate: number;      // e.g. 84%
+  previousRate: number;     // e.g. 70%
+  delta: number;            // +14%
+  currentCompleted: number;
+  currentScheduled: number;
+}
+
+export const calculateRollingVelocity = (
+  habits: Habit[],
+  completions: Completion[],
+  windowDays = 7
+): RollingVelocity => {
+  const now = startOfDay(new Date());
+  
+  // Current window: [now - (windowDays - 1), now]
+  const currentStart = subDays(now, windowDays - 1);
+  const currentInterval = eachDayOfInterval({ start: currentStart, end: now });
+
+  // Previous window: [now - (windowDays * 2 - 1), now - windowDays]
+  const prevEnd = subDays(now, windowDays);
+  const prevStart = subDays(now, (windowDays * 2) - 1);
+  const prevInterval = eachDayOfInterval({ start: prevStart, end: prevEnd });
+
+  const getStatsForInterval = (dates: Date[]) => {
+    let scheduled = 0;
+    let completed = 0;
+
+    dates.forEach(day => {
+      const dateStr = format(day, 'yyyy-MM-dd');
+      const dayOfWeek = day.getDay();
+
+      habits.forEach(h => {
+        if (h.startDate && dateStr < h.startDate) return;
+        if (h.endDate && dateStr > h.endDate) return;
+
+        let isDue = true;
+        if (h.frequency === 'weekly' && h.selectedDays && h.selectedDays.length > 0) {
+          isDue = h.selectedDays.includes(dayOfWeek);
+        }
+
+        if (isDue) {
+          scheduled++;
+          const done = completions.some(c => c.habitId === h.id && c.date === dateStr);
+          if (done) completed++;
+        }
+      });
+    });
+
+    const rate = scheduled > 0 ? Math.round((completed / scheduled) * 100) : 0;
+    return { scheduled, completed, rate };
+  };
+
+  const current = getStatsForInterval(currentInterval);
+  const previous = getStatsForInterval(prevInterval);
+  const delta = current.rate - previous.rate;
+
+  return {
+    currentRate: current.rate,
+    previousRate: previous.rate,
+    delta,
+    currentCompleted: current.completed,
+    currentScheduled: current.scheduled
+  };
+};
+
+export interface ResilienceScore {
+  resilienceRate: number;   // 0-100%
+  salvagedCount: number;
+  totalLapses: number;
+}
+
+export const calculateResilienceScore = (
+  habits: Habit[],
+  completions: Completion[]
+): ResilienceScore => {
+  let totalLapses = 0;
+  let salvagedCount = 0;
+
+  habits.filter(h => h.frequency === 'daily').forEach(habit => {
+    const dates = completions
+      .filter(c => c.habitId === habit.id)
+      .map(c => c.date);
+    const dateSet = new Set(dates);
+
+    if (dates.length < 2) return;
+
+    // Check last 60 days
+    const today = startOfDay(new Date());
+    for (let i = 2; i <= 60; i++) {
+      const dayBefore = format(subDays(today, i), 'yyyy-MM-dd');
+      const targetDay = format(subDays(today, i - 1), 'yyyy-MM-dd');
+      const dayAfter = format(subDays(today, i - 2), 'yyyy-MM-dd');
+
+      // If dayBefore was done, targetDay was missed
+      if (dateSet.has(dayBefore) && !dateSet.has(targetDay)) {
+        totalLapses++;
+        // If dayAfter was done -> Never Miss Twice salvaged the streak!
+        if (dateSet.has(dayAfter)) {
+          salvagedCount++;
+        }
+      }
+    }
+  });
+
+  const resilienceRate = totalLapses > 0 ? Math.round((salvagedCount / totalLapses) * 100) : 100;
+  return { resilienceRate, salvagedCount, totalLapses };
+};
+
+export interface DayOfWeekStat {
+  dayIndex: number;
+  dayName: string;
+  rate: number;
+  completed: number;
+  scheduled: number;
+}
+
+export const calculateDayOfWeekPerformance = (
+  habits: Habit[],
+  completions: Completion[],
+  daysCount = 60
+): { days: DayOfWeekStat[]; bestDay: DayOfWeekStat; weakestDay: DayOfWeekStat } => {
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const buckets = Array.from({ length: 7 }, (_, i) => ({
+    dayIndex: i,
+    dayName: dayNames[i],
+    completed: 0,
+    scheduled: 0,
+    rate: 0
+  }));
+
+  const now = startOfDay(new Date());
+  const start = subDays(now, daysCount - 1);
+  const interval = eachDayOfInterval({ start, end: now });
+
+  interval.forEach(day => {
+    const dateStr = format(day, 'yyyy-MM-dd');
+    const dayOfWeek = day.getDay();
+
+    habits.forEach(h => {
+      if (h.startDate && dateStr < h.startDate) return;
+      if (h.endDate && dateStr > h.endDate) return;
+
+      let isDue = true;
+      if (h.frequency === 'weekly' && h.selectedDays && h.selectedDays.length > 0) {
+        isDue = h.selectedDays.includes(dayOfWeek);
+      }
+
+      if (isDue) {
+        buckets[dayOfWeek].scheduled++;
+        const done = completions.some(c => c.habitId === h.id && c.date === dateStr);
+        if (done) buckets[dayOfWeek].completed++;
+      }
+    });
+  });
+
+  buckets.forEach(b => {
+    b.rate = b.scheduled > 0 ? Math.round((b.completed / b.scheduled) * 100) : 0;
+  });
+
+  // Reorder starting Monday (Mon, Tue, Wed, Thu, Fri, Sat, Sun)
+  const reordered = [...buckets.slice(1), buckets[0]];
+
+  // Sort by rate to identify best and weakest
+  const sorted = [...reordered].sort((a, b) => b.rate - a.rate);
+  const bestDay = sorted[0];
+  const weakestDay = sorted[sorted.length - 1];
+
+  return { days: reordered, bestDay, weakestDay };
+};
+
+export interface SleepBracket {
+  label: string;
+  range: string;
+  rate: number;
+  daysCount: number;
+  sampleDescription: string;
+}
+
+export const calculateSleepBrackets = (
+  habits: Habit[],
+  completions: Completion[],
+  sleepLogs: SleepLog[]
+): SleepBracket[] => {
+  const completionsByDate = new Map<string, number>();
+  completions.forEach(c => {
+    completionsByDate.set(c.date, (completionsByDate.get(c.date) || 0) + 1);
+  });
+
+  const brackets = [
+    { label: '< 6h', range: 'Severely Deprived', min: 0, max: 6.0, totalCompleted: 0, totalPossible: 0, daysCount: 0 },
+    { label: '6h – 7h', range: 'Suboptimal', min: 6.0, max: 7.0, totalCompleted: 0, totalPossible: 0, daysCount: 0 },
+    { label: '7h – 8h', range: 'Optimal Zone', min: 7.0, max: 8.0, totalCompleted: 0, totalPossible: 0, daysCount: 0 },
+    { label: '> 8h', range: 'Deep Recovery', min: 8.0, max: 24.0, totalCompleted: 0, totalPossible: 0, daysCount: 0 },
+  ];
+
+  sleepLogs.forEach(s => {
+    const done = completionsByDate.get(s.date) || 0;
+    const totalHabits = habits.length;
+    if (totalHabits === 0) return;
+
+    for (const b of brackets) {
+      if (s.duration >= b.min && s.duration < b.max) {
+        b.totalCompleted += done;
+        b.totalPossible += totalHabits;
+        b.daysCount++;
+        break;
+      }
+    }
+  });
+
+  return brackets.map(b => ({
+    label: b.label,
+    range: b.range,
+    rate: b.totalPossible > 0 ? Math.round((b.totalCompleted / b.totalPossible) * 100) : 0,
+    daysCount: b.daysCount,
+    sampleDescription: `${b.daysCount} logged ${b.daysCount === 1 ? 'day' : 'days'}`
+  }));
+};
+
+export interface ScreenTimeBracket {
+  label: string;
+  range: string;
+  rate: number;
+  daysCount: number;
+  description: string;
+}
+
+export const calculateScreenTimeBrackets = (
+  habits: Habit[],
+  completions: Completion[],
+  screenTimeLogs: ScreenTimeLog[]
+): ScreenTimeBracket[] => {
+  const completionsByDate = new Map<string, number>();
+  completions.forEach(c => {
+    completionsByDate.set(c.date, (completionsByDate.get(c.date) || 0) + 1);
+  });
+
+  const dailyScreenTime = new Map<string, number>();
+  (screenTimeLogs || []).forEach(st => {
+    dailyScreenTime.set(st.date, (dailyScreenTime.get(st.date) || 0) + st.duration);
+  });
+
+  const brackets = [
+    { label: '< 2.5h', range: 'Laser Focus', min: 0, max: 2.5, totalCompleted: 0, totalPossible: 0, daysCount: 0 },
+    { label: '2.5h – 4h', range: 'Moderate', min: 2.5, max: 4.0, totalCompleted: 0, totalPossible: 0, daysCount: 0 },
+    { label: '> 4.0h', range: 'Digital Fatigue', min: 4.0, max: 24.0, totalCompleted: 0, totalPossible: 0, daysCount: 0 },
+  ];
+
+  dailyScreenTime.forEach((hours, date) => {
+    const done = completionsByDate.get(date) || 0;
+    const totalHabits = habits.length;
+    if (totalHabits === 0) return;
+
+    for (const b of brackets) {
+      if (hours >= b.min && hours < b.max) {
+        b.totalCompleted += done;
+        b.totalPossible += totalHabits;
+        b.daysCount++;
+        break;
+      }
+    }
+  });
+
+  return brackets.map(b => ({
+    label: b.label,
+    range: b.range,
+    rate: b.totalPossible > 0 ? Math.round((b.totalCompleted / b.totalPossible) * 100) : 0,
+    daysCount: b.daysCount,
+    description: `${b.daysCount} logged ${b.daysCount === 1 ? 'day' : 'days'}`
+  }));
+};
+
+export type HabitHealthTier = 'anchor' | 'momentum' | 'friction' | 'dormant';
+
+export interface HabitHealthItem {
+  habit: Habit;
+  accuracy: number;
+  currentStreak: number;
+  longestStreak: number;
+  tier: HabitHealthTier;
+  tierLabel: string;
+  recommendation: string;
+  fullCount: number;
+  microCount: number;
+}
+
+export const calculateHabitHealthMatrix = (
+  habits: Habit[],
+  completions: Completion[]
+): HabitHealthItem[] => {
+  const now = startOfDay(new Date());
+  const twoWeeksAgo = format(subDays(now, 14), 'yyyy-MM-dd');
+
+  return habits.map(habit => {
+    const { rate, fullCompleted, microCompleted } = getCompletionStats(habit, completions);
+    const { currentStreak, longestStreak } = calculateStreak(habit, completions);
+
+    const recentCompletions = completions.filter(c => c.habitId === habit.id && c.date >= twoWeeksAgo);
+
+    let tier: HabitHealthTier = 'momentum';
+    let tierLabel = 'Developing Momentum';
+    let recommendation = 'Keep building consistency to reach the 85% anchor threshold.';
+
+    if (recentCompletions.length === 0 && completions.filter(c => c.habitId === habit.id).length > 0) {
+      tier = 'dormant';
+      tierLabel = 'Dormant (Zero in 14d)';
+      recommendation = 'Either archive this habit or redesign the anchor cue to revive it.';
+    } else if (rate >= 85 && currentStreak >= 5) {
+      tier = 'anchor';
+      tierLabel = 'Automated Anchor (≥85%)';
+      recommendation = 'Solidified habit! Excellent candidate to stack a new micro-habit onto.';
+    } else if (rate < 70) {
+      tier = 'friction';
+      tierLabel = 'High Friction (<70%)';
+      recommendation = habit.twoMinuteRule 
+        ? `Scale down! Execute the 2-minute version: "${habit.twoMinuteRule}".`
+        : 'Friction detected: add a 2-Minute emergency version to avoid all-or-nothing failure.';
+    }
+
+    return {
+      habit,
+      accuracy: rate,
+      currentStreak,
+      longestStreak,
+      tier,
+      tierLabel,
+      recommendation,
+      fullCount: fullCompleted,
+      microCount: microCompleted
+    };
+  }).sort((a, b) => b.accuracy - a.accuracy);
 };
