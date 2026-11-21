@@ -63,7 +63,13 @@ CREATE TABLE IF NOT EXISTS public.completions (
 ALTER TABLE public.completions
   ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'full';
 
--- Prevent duplicate completions for the same habit on the same date
+-- 4.1 Deduplicate any existing completions before creating the unique constraint
+DELETE FROM public.completions a USING public.completions b
+WHERE a.ctid < b.ctid
+  AND a.habit_id = b.habit_id
+  AND a.date = b.date;
+
+-- 4.2 Prevent duplicate completions for the same habit on the same date
 DO $$ 
 BEGIN
   IF NOT EXISTS (
