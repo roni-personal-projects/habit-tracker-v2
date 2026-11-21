@@ -220,6 +220,28 @@ interface HabitTableProps {
 export default function HabitTable({ onEditHabit }: HabitTableProps) {
   const { habits, categories, completions, toggleCompletion, deleteHabit, reorderHabits } = useHabitStore();
   const [offset, setOffset] = React.useState(0);
+  const [todayPulse, setTodayPulse] = React.useState(false);
+
+  React.useEffect(() => {
+    const handleJumpToday = () => {
+      setOffset(0);
+      setTodayPulse(true);
+      const timer = setTimeout(() => setTodayPulse(false), 1200);
+      return () => clearTimeout(timer);
+    };
+    const handlePrev = () => setOffset(prev => prev + 14);
+    const handleNext = () => setOffset(prev => Math.max(0, prev - 14));
+
+    window.addEventListener('habitflow:jump-today', handleJumpToday);
+    window.addEventListener('habitflow:prev-dates', handlePrev);
+    window.addEventListener('habitflow:next-dates', handleNext);
+
+    return () => {
+      window.removeEventListener('habitflow:jump-today', handleJumpToday);
+      window.removeEventListener('habitflow:prev-dates', handlePrev);
+      window.removeEventListener('habitflow:next-dates', handleNext);
+    };
+  }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -290,28 +312,45 @@ export default function HabitTable({ onEditHabit }: HabitTableProps) {
         <div className="flex items-center gap-2">
           <button 
             onClick={() => setOffset(prev => prev + 14)}
-            className="p-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-all"
-            title="Previous 14 days"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-all text-xs"
+            title="Previous 14 days (← or [)"
           >
-            <ChevronLeft size={18} />
+            <ChevronLeft size={16} />
+            <kbd className="hidden sm:inline-block text-[10px] font-mono text-zinc-500">←</kbd>
           </button>
           <button 
             onClick={() => setOffset(prev => Math.max(0, prev - 14))}
             disabled={offset === 0}
-            className="p-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-all disabled:opacity-20 disabled:cursor-not-allowed"
-            title="Next 14 days"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-all disabled:opacity-20 disabled:cursor-not-allowed text-xs"
+            title="Next 14 days (→ or ])"
           >
-            <ChevronRight size={18} />
+            <kbd className="hidden sm:inline-block text-[10px] font-mono text-zinc-500">→</kbd>
+            <ChevronRight size={16} />
           </button>
-          {offset > 0 && (
-            <button 
-              onClick={() => setOffset(0)}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600/10 text-blue-500 hover:bg-blue-600/20 transition-all text-xs font-bold"
-            >
-              <RotateCcw size={14} />
-              TODAY
-            </button>
-          )}
+
+          <button 
+            onClick={() => {
+              setOffset(0);
+              setTodayPulse(true);
+              setTimeout(() => setTodayPulse(false), 1200);
+            }}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all text-xs font-bold",
+              offset > 0 
+                ? "bg-blue-600 text-white shadow-lg shadow-blue-600/30 active:scale-95" 
+                : "bg-blue-600/10 text-blue-400 hover:bg-blue-600/20"
+            )}
+            title="Jump to Today (Press T)"
+          >
+            <RotateCcw size={13} className={cn(offset > 0 && "animate-spin-once")} />
+            <span>TODAY</span>
+            <kbd className={cn(
+              "px-1.5 py-0.2 rounded text-[10px] font-mono font-bold",
+              offset > 0 ? "bg-white/20 text-white" : "bg-blue-500/20 text-blue-300"
+            )}>
+              T
+            </kbd>
+          </button>
         </div>
         <div className="text-xs font-bold text-zinc-500 uppercase tracking-widest bg-zinc-800/50 px-3 py-1.5 rounded-full">
           {format(dates[0], 'MMM d')} — {format(dates[dates.length - 1], 'MMM d, yyyy')}
@@ -352,19 +391,29 @@ export default function HabitTable({ onEditHabit }: HabitTableProps) {
                 <th className="sticky left-0 z-10 bg-zinc-900 p-4 text-left font-semibold text-zinc-100 min-w-[200px] border-r border-zinc-800">
                   Habit
                 </th>
-                {dates.map((date) => (
-                  <th key={date.toISOString()} className="p-4 text-center min-w-[60px]">
-                    <div className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold mb-1">
-                      {format(date, 'EEE')}
-                    </div>
-                    <div className={cn(
-                      "text-sm font-medium",
-                      isTodayFn(date) ? "text-blue-500" : "text-zinc-300"
-                    )}>
-                      {format(date, 'd')}
-                    </div>
-                  </th>
-                ))}
+                {dates.map((date) => {
+                  const isCurrentDay = isTodayFn(date);
+                  return (
+                    <th 
+                      key={date.toISOString()} 
+                      className={cn(
+                        "p-4 text-center min-w-[60px] transition-all duration-300",
+                        isCurrentDay && todayPulse && "bg-blue-500/20 ring-1 ring-blue-400 rounded-lg shadow-[0_0_12px_rgba(59,130,246,0.3)]"
+                      )}
+                    >
+                      <div className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold mb-1">
+                        {format(date, 'EEE')}
+                      </div>
+                      <div className={cn(
+                        "text-sm font-medium",
+                        isCurrentDay ? "text-blue-400 font-bold flex items-center justify-center gap-1" : "text-zinc-300"
+                      )}>
+                        {format(date, 'd')}
+                        {isCurrentDay && <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0 inline-block animate-pulse" />}
+                      </div>
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>

@@ -24,6 +24,29 @@ export default function TablePage() {
     setEditingHabit(null);
   };
 
+  React.useEffect(() => {
+    const handleCreateHabit = () => {
+      setEditingHabit(null);
+      setIsFormOpen(true);
+    };
+    const handleExportEvent = () => {
+      handleExport();
+    };
+    const handleCloseModals = () => {
+      setIsFormOpen(false);
+    };
+
+    window.addEventListener('habitflow:create-habit', handleCreateHabit);
+    window.addEventListener('habitflow:export-report', handleExportEvent);
+    window.addEventListener('habitflow:close-modals', handleCloseModals);
+
+    return () => {
+      window.removeEventListener('habitflow:create-habit', handleCreateHabit);
+      window.removeEventListener('habitflow:export-report', handleExportEvent);
+      window.removeEventListener('habitflow:close-modals', handleCloseModals);
+    };
+  }, [habits, categories, completions, sleepLogs]);
+
   const handleExport = () => {
     const today = format(new Date(), 'yyyy-MM-dd');
     let content = `# HabitFlow Behavioral & Performance Report (${today})\n\n`;
@@ -98,16 +121,27 @@ export default function TablePage() {
           <button 
             onClick={handleExport}
             className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 px-4 py-2.5 rounded-xl font-medium transition-all"
+            title="Export AI Coaching Report (Press E)"
           >
             <Download size={18} />
-            Export Data
+            <span>Export Data</span>
+            <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono text-zinc-400 bg-zinc-700 rounded">
+              E
+            </kbd>
           </button>
           <button 
-            onClick={() => setIsFormOpen(true)}
+            onClick={() => {
+              setEditingHabit(null);
+              setIsFormOpen(true);
+            }}
             className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-blue-600/20 active:scale-95"
+            title="Add Habit (Press C)"
           >
             <Plus size={20} />
-            Add Habit
+            <span>Add Habit</span>
+            <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono font-bold bg-white/20 rounded text-white">
+              C
+            </kbd>
           </button>
         </div>
       </header>

@@ -70,6 +70,37 @@ export default function Home() {
     setEditingHabit(null);
   };
 
+  // Keyboard Shortcuts & Event Listeners
+  React.useEffect(() => {
+    const handleCreateHabit = () => {
+      setEditingHabit(null);
+      setIsFormOpen(true);
+    };
+    const handleOpenSprintEvent = () => {
+      openSprintModal();
+    };
+    const handleCloseModals = () => {
+      setIsFormOpen(false);
+      setIsSprintModalOpen(false);
+    };
+
+    window.addEventListener('habitflow:create-habit', handleCreateHabit);
+    window.addEventListener('habitflow:open-sprint', handleOpenSprintEvent);
+    window.addEventListener('habitflow:close-modals', handleCloseModals);
+
+    // Check if navigated with ?create=true
+    if (typeof window !== 'undefined' && window.location.search.includes('create=true')) {
+      handleCreateHabit();
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
+    return () => {
+      window.removeEventListener('habitflow:create-habit', handleCreateHabit);
+      window.removeEventListener('habitflow:open-sprint', handleOpenSprintEvent);
+      window.removeEventListener('habitflow:close-modals', handleCloseModals);
+    };
+  }, [openSprintModal]);
+
   // Derived stats
   const totalHabits = habits.length;
   const bestStreak = habits.reduce((max, h) => {
@@ -107,11 +138,18 @@ export default function Home() {
           <p className="text-zinc-400">Identity-based habits compounded over time create exponential change.</p>
         </div>
         <button 
-          onClick={() => setIsFormOpen(true)}
+          onClick={() => {
+            setEditingHabit(null);
+            setIsFormOpen(true);
+          }}
           className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-blue-600/20 active:scale-95"
+          title="Create Habit (Press C)"
         >
           <Plus size={20} />
-          Create Habit
+          <span>Create Habit</span>
+          <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono font-bold bg-white/20 rounded text-white">
+            C
+          </kbd>
         </button>
       </header>
 

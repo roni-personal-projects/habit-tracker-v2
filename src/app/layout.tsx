@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import Sidebar from "@/components/Sidebar";
 import AuthSync from "@/components/AuthSync";
+import KeyboardShortcuts from "@/components/KeyboardShortcuts";
 import { ClerkProvider } from "@clerk/nextjs";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -38,6 +39,7 @@ export default function RootLayout({
             <div className="absolute top-[60%] -right-[10%] w-[500px] h-[400px] bg-violet-600/8 blur-[150px] rounded-full" />
           </div>
           <AuthSync />
+          <KeyboardShortcuts />
           <Sidebar />
           <main className="flex-1 md:ml-64 p-4 sm:p-6 md:p-8 min-h-screen overflow-y-auto">
             <div className="max-w-7xl mx-auto">

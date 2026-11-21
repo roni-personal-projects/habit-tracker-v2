@@ -22,6 +22,19 @@ export default function SleepPage() {
   
   const lastSleep = sortedLogs[0];
 
+  React.useEffect(() => {
+    const handleCreate = () => setIsFormOpen(true);
+    const handleClose = () => setIsFormOpen(false);
+
+    window.addEventListener('habitflow:create-habit', handleCreate);
+    window.addEventListener('habitflow:close-modals', handleClose);
+
+    return () => {
+      window.removeEventListener('habitflow:create-habit', handleCreate);
+      window.removeEventListener('habitflow:close-modals', handleClose);
+    };
+  }, []);
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -32,9 +45,13 @@ export default function SleepPage() {
         <button 
           onClick={() => setIsFormOpen(true)}
           className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-blue-600/20 active:scale-95"
+          title="Log Sleep (Press C)"
         >
           <Plus size={20} />
-          Log Sleep
+          <span>Log Sleep</span>
+          <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono font-bold bg-white/20 rounded text-white">
+            C
+          </kbd>
         </button>
       </header>
 
