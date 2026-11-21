@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Table as TableIcon, BarChart3, LogIn, Moon, Laptop, Menu, X, Sparkles, Keyboard } from 'lucide-react';
+import { LayoutDashboard, Table as TableIcon, BarChart3, LogIn, Moon, Laptop, Menu, X, Sparkles, Keyboard, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { UserButton, Show, SignInButton } from '@clerk/nextjs';
 
@@ -103,7 +103,23 @@ export default function Sidebar() {
             </Show>
           </nav>
 
-          <div className="pt-4 border-t border-zinc-800 space-y-3">
+          <div className="pt-4 border-t border-zinc-800 space-y-2">
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false);
+                window.dispatchEvent(new CustomEvent('habitflow:trigger-install'));
+              }}
+              className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs text-blue-300 hover:text-white bg-blue-600/10 hover:bg-blue-600/20 border border-blue-500/30 transition-colors"
+            >
+              <span className="flex items-center gap-2.5">
+                <Download size={16} className="text-blue-400" />
+                <span className="font-semibold">Install HabitFlow</span>
+              </span>
+              <span className="text-[10px] uppercase font-bold text-blue-400 bg-blue-500/20 px-1.5 py-0.5 rounded">
+                App
+              </span>
+            </button>
+
             <button
               onClick={() => {
                 setMobileMenuOpen(false);
@@ -168,7 +184,21 @@ export default function Sidebar() {
           </Show>
         </nav>
 
-        <div className="pt-3 pb-3">
+        <div className="pt-2 pb-2 space-y-1.5">
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('habitflow:trigger-install'))}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs text-blue-300 hover:text-white hover:bg-blue-600/20 bg-blue-600/10 border border-blue-500/25 transition-colors"
+            title="Install HabitFlow Standalone App"
+          >
+            <span className="flex items-center gap-2">
+              <Download size={14} className="text-blue-400" />
+              <span className="font-semibold">Install App</span>
+            </span>
+            <span className="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-300">
+              PWA
+            </span>
+          </button>
+
           <button
             onClick={() => window.dispatchEvent(new CustomEvent('habitflow:toggle-shortcuts'))}
             className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 bg-zinc-900/40 border border-zinc-800/60 transition-colors"
