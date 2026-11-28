@@ -155,6 +155,11 @@ export const useHabitStore = create<HabitStore>()(
       sprintStartDate: new Date().toISOString().split('T')[0],
       sprintTargetRate: 85,
 
+      // Birthday & Focus Controls
+      birthDate: '',
+      pinnedHabitIds: [],
+      pausedHabitIds: [],
+
       initialize: async (userId: string) => {
         // Only skip if already initialized for the same user in this session
         if (get().isInitialized && get().userId === userId) return;
@@ -360,6 +365,8 @@ export const useHabitStore = create<HabitStore>()(
         set((state) => ({
           habits: state.habits.filter((h) => h.id !== id),
           completions: state.completions.filter((c) => c.habitId !== id),
+          pinnedHabitIds: (state.pinnedHabitIds || []).filter((pid) => pid !== id),
+          pausedHabitIds: (state.pausedHabitIds || []).filter((pid) => pid !== id),
         }));
 
         await supabase.from('habits').delete().eq('id', id);
@@ -612,6 +619,40 @@ export const useHabitStore = create<HabitStore>()(
           ...settings,
         }));
       },
+
+      setBirthDate: (birthDate) => {
+        set({ birthDate });
+      },
+
+      togglePinHabit: (habitId) => {
+        set((state) => {
+          const current = state.pinnedHabitIds || [];
+          if (current.includes(habitId)) {
+            return { pinnedHabitIds: current.filter((id) => id !== habitId) };
+          }
+          // Cap at Top 3 Non-Negotiables; if unpaused, allow pinning
+          if (current.length >= 3) {
+            return state;
+          }
+          return {
+            pinnedHabitIds: [...current, habitId],
+            pausedHabitIds: (state.pausedHabitIds || []).filter((id) => id !== habitId),
+          };
+        });
+      },
+
+      togglePauseHabit: (habitId) => {
+        set((state) => {
+          const current = state.pausedHabitIds || [];
+          if (current.includes(habitId)) {
+            return { pausedHabitIds: current.filter((id) => id !== habitId) };
+          }
+          return {
+            pausedHabitIds: [...current, habitId],
+            pinnedHabitIds: (state.pinnedHabitIds || []).filter((id) => id !== habitId),
+          };
+        });
+      },
     }),
     {
       name: 'habit-tracker-storage',
@@ -625,6 +666,9 @@ export const useHabitStore = create<HabitStore>()(
         sprintGoal: state.sprintGoal,
         sprintStartDate: state.sprintStartDate,
         sprintTargetRate: state.sprintTargetRate,
+        birthDate: state.birthDate,
+        pinnedHabitIds: state.pinnedHabitIds,
+        pausedHabitIds: state.pausedHabitIds,
       }),
     }
   )

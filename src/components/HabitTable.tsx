@@ -218,7 +218,7 @@ interface HabitTableProps {
 }
 
 export default function HabitTable({ onEditHabit }: HabitTableProps) {
-  const { habits, categories, completions, toggleCompletion, deleteHabit, reorderHabits } = useHabitStore();
+  const { habits, categories, completions, pausedHabitIds = [], toggleCompletion, deleteHabit, reorderHabits } = useHabitStore();
   const [offset, setOffset] = React.useState(0);
   const [todayPulse, setTodayPulse] = React.useState(false);
 
@@ -258,17 +258,19 @@ export default function HabitTable({ onEditHabit }: HabitTableProps) {
     return eachDayOfInterval({ start, end });
   }, [offset]);
 
-  // Group habits by category hierarchy
+  // Group active (non-paused) habits by category hierarchy
   const groupedData = useMemo(() => {
-    const ungrouped = habits.filter(h => !h.categoryId);
+    const pausedSet = new Set(pausedHabitIds);
+    const activeHabits = habits.filter(h => !pausedSet.has(h.id));
+    const ungrouped = activeHabits.filter(h => !h.categoryId);
     const parents = categories.filter(c => !c.parentId);
 
     const grouped = parents.map(parent => {
       const children = categories.filter(c => c.parentId === parent.id);
-      const directHabits = habits.filter(h => h.categoryId === parent.id);
+      const directHabits = activeHabits.filter(h => h.categoryId === parent.id);
       const subCategoryGroups = children.map(child => ({
         category: child,
-        habits: habits.filter(h => h.categoryId === child.id)
+        habits: activeHabits.filter(h => h.categoryId === child.id)
       })).filter(sg => sg.habits.length > 0);
 
       return {
@@ -283,11 +285,11 @@ export default function HabitTable({ onEditHabit }: HabitTableProps) {
       .filter(c => c.parentId && !categories.some(p => p.id === c.parentId))
       .map(cat => ({
         category: cat,
-        habits: habits.filter(h => h.categoryId === cat.id)
+        habits: activeHabits.filter(h => h.categoryId === cat.id)
       })).filter(g => g.habits.length > 0);
 
     return { ungrouped, grouped, orphans };
-  }, [habits, categories]);
+  }, [habits, categories, pausedHabitIds]);
 
 
   const handleDragEnd = (event: DragEndEvent) => {

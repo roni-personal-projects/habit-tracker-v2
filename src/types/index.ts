@@ -85,5 +85,13 @@ export interface HabitStore {
   sprintStartDate?: string;
   sprintTargetRate?: number;
   updateSprintSettings: (settings: { sprintGoal?: string; sprintStartDate?: string; sprintTargetRate?: number }) => void;
+
+  // Birthday & Time-Urgency + Focus Controls (persisted locally):
+  birthDate?: string; // YYYY-MM-DD
+  setBirthDate: (birthDate: string) => void;
+  pinnedHabitIds: string[];
+  togglePinHabit: (habitId: string) => void;
+  pausedHabitIds: string[];
+  togglePauseHabit: (habitId: string) => void;
 }
 

@@ -3,10 +3,13 @@
 import React, { useState } from 'react';
 import { useHabitStore } from '@/store/useHabitStore';
 import HabitTable from '@/components/HabitTable';
+import TodayFocusView from '@/components/TodayFocusView';
+import BirthdayUrgencyBar from '@/components/BirthdayUrgencyBar';
 import HabitForm from '@/components/HabitForm';
 import { 
   Plus, Flame, Target, CheckCircle2, Moon, Laptop, Sparkles, 
-  AlertTriangle, ShieldCheck, Zap, Settings2, Calendar, Flag, X 
+  AlertTriangle, ShieldCheck, Zap, Settings2, Calendar, Flag, X,
+  ListChecks, Table as TableIcon
 } from 'lucide-react';
 import { calculateStreak, calculateWeeklyExecution, calculateIdentityVotes } from '@/lib/streak-logic';
 import { Habit } from '@/types';
@@ -28,6 +31,7 @@ export default function Home() {
     completions, 
     sleepLogs, 
     screenTimeLogs,
+    pausedHabitIds = [],
     sprintGoal = 'Quarterly Peak Performance & Consistency',
     sprintStartDate = new Date().toISOString().split('T')[0],
     sprintTargetRate = 85,
@@ -36,6 +40,7 @@ export default function Home() {
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
+  const [trackerView, setTrackerView] = useState<'today' | 'grid'>('today');
 
   // 12-Week Sprint Modal State
   const [isSprintModalOpen, setIsSprintModalOpen] = useState(false);
@@ -102,7 +107,9 @@ export default function Home() {
   }, [openSprintModal]);
 
   // Derived stats
-  const totalHabits = habits.length;
+  const pausedSet = new Set(pausedHabitIds);
+  const activeHabits = habits.filter(h => !pausedSet.has(h.id));
+  const totalHabits = activeHabits.length;
   const bestStreak = habits.reduce((max, h) => {
     const { longestStreak } = calculateStreak(h, completions);
     return Math.max(max, longestStreak);
@@ -125,10 +132,10 @@ export default function Home() {
   const currentWeekNum = Math.min(12, Math.max(1, rawWeekNum));
   const isSprintFinished = rawWeekNum > 12;
 
-  // Behavioral Science Insights
-  const weeklyExecution = calculateWeeklyExecution(habits, completions, sprintTargetRate);
+  // Behavioral Science Insights (exclude paused habits from weekly pace & at-risk radar)
+  const weeklyExecution = calculateWeeklyExecution(activeHabits, completions, sprintTargetRate);
   const identityVotes = calculateIdentityVotes(habits, completions);
-  const atRiskHabits = habits.filter(h => calculateStreak(h, completions).isAtRisk);
+  const atRiskHabits = activeHabits.filter(h => calculateStreak(h, completions).isAtRisk);
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -152,6 +159,9 @@ export default function Home() {
           </kbd>
         </button>
       </header>
+
+      {/* ⏳ Birthday & Time Urgency Bar */}
+      <BirthdayUrgencyBar />
 
       {/* ⚠️ Never Miss Twice Action Radar */}
       {atRiskHabits.length > 0 && (
@@ -368,10 +378,54 @@ export default function Home() {
       </div>
 
       <section>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-zinc-100">Weekly Tracker</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-bold text-zinc-100">
+              {trackerView === 'today' ? "Today's Focus" : 'Weekly Tracker'}
+            </h2>
+          </div>
+
+          <div className="inline-flex items-center p-1 rounded-xl bg-zinc-900/90 border border-zinc-800">
+            <button
+              type="button"
+              onClick={() => setTrackerView('today')}
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all',
+                trackerView === 'today'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              )}
+            >
+              <ListChecks size={14} />
+              <span>Today</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTrackerView('grid')}
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all',
+                trackerView === 'grid'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              )}
+            >
+              <TableIcon size={14} />
+              <span>14-Day Grid</span>
+            </button>
+          </div>
         </div>
-        <HabitTable onEditHabit={handleEditHabit} />
+
+        {trackerView === 'today' ? (
+          <TodayFocusView
+            onEditHabit={handleEditHabit}
+            onCreateHabit={() => {
+              setEditingHabit(null);
+              setIsFormOpen(true);
+            }}
+          />
+        ) : (
+          <HabitTable onEditHabit={handleEditHabit} />
+        )}
       </section>
 
       <HabitForm 
